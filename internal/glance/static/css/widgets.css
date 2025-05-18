@@ -105,7 +105,16 @@
     cursor: help;
 }
 
-.ai-match-badge.score-0, .ai-match-badge.score-1, .ai-match-badge.score-2, .ai-match-badge.score-3 { background: #e4faea; color: #166534; }
-.ai-match-badge.score-4, .ai-match-badge.score-5, .ai-match-badge.score-6 { background: #bbf7d0; color: #166534; }
-.ai-match-badge.score-7, .ai-match-badge.score-8, .ai-match-badge.score-9, .ai-match-badge.score-10 { background: #6ee7b7; color: #166534; }
+.ai-match-badge.score-0, .ai-match-badge.score-1, .ai-match-badge.score-2, .ai-match-badge.score-3 { 
+    background: #fca5a5; 
+    color: #991b1b;
+}
+.ai-match-badge.score-4, .ai-match-badge.score-5, .ai-match-badge.score-6 { 
+    background: #fde68a; 
+    color: #a16207;
+}
+.ai-match-badge.score-7, .ai-match-badge.score-8, .ai-match-badge.score-9, .ai-match-badge.score-10 { 
+    background: #bbf7d0; 
+    color: #166534;
+}
   

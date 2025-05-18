@@ -11,8 +11,8 @@
 {{ end }}
 
 <div class="page-filter-bar">
-  <form id="filter-form" class="filter-form" style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1.5rem; width: 100%;">
-    <textarea id="filter-input" name="filter" placeholder="Filter prompt..." style="min-height: 2.5em; max-height: 8em; resize: vertical; width: 100%; max-width: 500px;">{{ .Request.Filter }}</textarea>
+  <form id="filter-form" class="filter-form">
+    <textarea id="filter-input" name="filter" placeholder="Filter prompt...">{{ .Request.Filter }}</textarea>
     <br />
     <button type="submit">Apply</button>
   </form>
