@@ -73,9 +73,11 @@ type user struct {
 }
 
 type page struct {
-	Title                  string  `yaml:"name"`
-	Slug                   string  `yaml:"slug"`
-	Width                  string  `yaml:"width"`
+	Title string `yaml:"name"`
+	Slug  string `yaml:"slug"`
+	Width string `yaml:"width"`
+	// FilterQuery is used to filter the feed with a natural language query.
+	FilterQuery            string  `yaml:"filter-query"`
 	DesktopNavigationWidth string  `yaml:"desktop-navigation-width"`
 	ShowMobileHeader       bool    `yaml:"show-mobile-header"`
 	HideDesktopNavigation  bool    `yaml:"hide-desktop-navigation"`

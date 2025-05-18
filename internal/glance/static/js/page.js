@@ -6,7 +6,14 @@ import { elem, find, findAll } from './templating.js';
 async function fetchPageContent(pageData) {
     // TODO: handle non 200 status codes/time outs
     // TODO: add retries
-    const response = await fetch(`${pageData.baseURL}/api/pages/${pageData.slug}/content/`);
+    const urlParams = new URLSearchParams(window.location.search);
+    const reqParams = new URLSearchParams();
+
+    if (urlParams.has("filter")) {
+        reqParams.set("filter", urlParams.get("filter"));
+    }
+
+    const response = await fetch(`${pageData.baseURL}/api/pages/${pageData.slug}/content/?${reqParams.toString()}`);
     const content = await response.text();
 
     return content;
