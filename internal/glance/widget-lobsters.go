@@ -2,12 +2,13 @@ package glance
 
 import (
 	"context"
-	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/go-shiori/go-readability"
 )
 
 type lobstersWidget struct {
@@ -136,22 +137,30 @@ func fetchLobstersPostsFromFeed(feedUrl string) (forumPostList, error) {
 
 	posts := make(forumPostList, 0, len(feed))
 
-	for i := range feed {
-		createdAt, _ := time.Parse(time.RFC3339, feed[i].CreatedAt)
+	for _, post := range feed {
+		createdAt, _ := time.Parse(time.RFC3339, post.CreatedAt)
 
-		posts = append(posts, forumPost{
-			ID:    feed[i].ID,
-			Title: feed[i].Title,
-			// TODO: Extract description from the referenced URL
-			Description:     feed[i].Title,
-			DiscussionUrl:   feed[i].CommentsURL,
-			TargetUrl:       feed[i].URL,
-			TargetUrlDomain: extractDomainFromUrl(feed[i].URL),
-			CommentCount:    feed[i].CommentCount,
-			Score:           feed[i].Score,
+		forumPost := forumPost{
+			ID:              post.ID,
+			Title:           post.Title,
+			Description:     post.Title,
+			DiscussionUrl:   post.CommentsURL,
+			TargetUrl:       post.URL,
+			TargetUrlDomain: extractDomainFromUrl(post.URL),
+			CommentCount:    post.CommentCount,
+			Score:           post.Score,
 			TimePosted:      createdAt,
-			Tags:            feed[i].Tags,
-		})
+			Tags:            post.Tags,
+		}
+
+		article, err := readability.FromURL(post.URL, 5*time.Second)
+		if err == nil {
+			forumPost.Description = article.TextContent
+		} else {
+			slog.Error("Failed to fetch lobster article", "error", err, "url", forumPost.TargetUrl)
+		}
+
+		posts = append(posts, forumPost)
 	}
 
 	if len(posts) == 0 {

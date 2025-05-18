@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-shiori/go-readability"
 )
 
 var (
@@ -280,6 +282,13 @@ func (widget *redditWidget) fetchSubredditPosts() (forumPostList, error) {
 					post.ParentList[0].Permalink,
 				)
 			}
+		}
+
+		article, err := readability.FromURL(forumPost.TargetUrl, 5*time.Second)
+		if err == nil {
+			forumPost.Description += fmt.Sprintf("\n\nReferenced article: \n%s", article.TextContent)
+		} else {
+			slog.Error("Failed to fetch reddit article", "error", err, "url", forumPost.TargetUrl)
 		}
 
 		posts = append(posts, forumPost)

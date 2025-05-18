@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-shiori/go-readability"
 )
 
 type hackerNewsWidget struct {
@@ -120,7 +122,7 @@ func fetchHackerNewsPostsFromIds(postIds []int, commentsUrlTemplate string) (for
 			commentsUrl = strings.ReplaceAll(commentsUrlTemplate, "{POST-ID}", strconv.Itoa(res.Id))
 		}
 
-		posts = append(posts, forumPost{
+		forumPost := forumPost{
 			ID:              strconv.Itoa(res.Id),
 			Title:           res.Title,
 			Description:     res.Title,
@@ -130,7 +132,16 @@ func fetchHackerNewsPostsFromIds(postIds []int, commentsUrlTemplate string) (for
 			CommentCount:    res.CommentCount,
 			Score:           res.Score,
 			TimePosted:      time.Unix(res.TimePosted, 0),
-		})
+		}
+
+		article, err := readability.FromURL(forumPost.TargetUrl, 5*time.Second)
+		if err == nil {
+			forumPost.Description = article.TextContent
+		} else {
+			slog.Error("Failed to fetch hacker news article", "error", err, "url", forumPost.TargetUrl)
+		}
+
+		posts = append(posts, forumPost)
 	}
 
 	if len(posts) == 0 {
