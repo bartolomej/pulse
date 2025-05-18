@@ -284,11 +284,13 @@ func (widget *redditWidget) fetchSubredditPosts() (forumPostList, error) {
 			}
 		}
 
-		article, err := readability.FromURL(forumPost.TargetUrl, 5*time.Second)
-		if err == nil {
-			forumPost.Description += fmt.Sprintf("\n\nReferenced article: \n%s", article.TextContent)
-		} else {
-			slog.Error("Failed to fetch reddit article", "error", err, "url", forumPost.TargetUrl)
+		if forumPost.TargetUrl != "" {
+			article, err := readability.FromURL(forumPost.TargetUrl, 5*time.Second)
+			if err == nil {
+				forumPost.Description += fmt.Sprintf("\n\nReferenced article: \n%s", article.TextContent)
+			} else {
+				slog.Error("Failed to fetch reddit article", "error", err, "url", forumPost.TargetUrl)
+			}
 		}
 
 		posts = append(posts, forumPost)
@@ -361,6 +363,7 @@ func (widget *redditWidget) filter(query string) {
 	for _, e := range widget.Posts {
 		if match, ok := matchesMap[e.ID]; ok {
 			e.MatchSummary = match.Highlight
+			e.MatchScore = match.Score
 			filtered = append(filtered, e)
 		}
 	}

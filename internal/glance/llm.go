@@ -26,8 +26,8 @@ func NewLLM() (*LLM, error) {
 
 type feedMatch struct {
 	ID        string `json:"id"`
-	Score     int    `json:"score"`
-	Highlight string `json:"highlight"`
+	Score     int    `json:"score" description:"How closely this item matches the query, from 0 to 10."`
+	Highlight string `json:"highlight" description:"A short explanation for why this item is a good match for the query. Short and concise, without any unecessary filler text (e.g. 'This includes...')."`
 }
 
 type completionResponse struct {
@@ -36,40 +36,35 @@ type completionResponse struct {
 
 // filterFeed returns the IDs of feed entries that match the query
 func (llm *LLM) filterFeed(ctx context.Context, feed []feedEntry, query string) ([]feedMatch, error) {
-	sb := strings.Builder{}
+	prompt := strings.Builder{}
 
-	sb.WriteString(`
+	prompt.WriteString(`
 You are an activity feed personalization assistant, 
 that helps the user find and focus on the most relevant content.
 
 You are given a list of feed entries with id, title, and description fields - given the natural language query,
-you should return the list of feed entry IDs alongside the score and highlight (explanation for why its a good match) that best match the query.
+you should rank these entries based on how well they match the query on a scale of 0 to 10.
 `)
-	sb.WriteString(fmt.Sprintf("filter query: %s\n", query))
+	prompt.WriteString(fmt.Sprintf("filter query: %s\n", query))
 
 	for _, entry := range feed {
-		sb.WriteString(fmt.Sprintf("id: %s\n", entry.ID))
-		sb.WriteString(fmt.Sprintf("title: %s\n", entry.Title))
-		sb.WriteString(fmt.Sprintf("description: %s\n", entry.Description))
-		sb.WriteString("\n")
+		prompt.WriteString(fmt.Sprintf("id: %s\n", entry.ID))
+		prompt.WriteString(fmt.Sprintf("title: %s\n", entry.Title))
+		prompt.WriteString(fmt.Sprintf("description: %s\n", entry.Description))
+		prompt.WriteString("\n")
 	}
 
-	return llm.structuredComplete(ctx, sb.String())
-}
-
-func (llm *LLM) structuredComplete(ctx context.Context, prompt string) ([]feedMatch, error) {
 	parser, err := outputparser.NewDefined(completionResponse{})
 	if err != nil {
 		return nil, fmt.Errorf("creating parser: %w", err)
 	}
 
-	schema := parser.GetFormatInstructions()
-	decoratedPrompt := fmt.Sprintf("%s\n\n%s", prompt, schema)
+	prompt.WriteString(fmt.Sprintf("\n\n%s", parser.GetFormatInstructions()))
 
 	out, err := llms.GenerateFromSinglePrompt(
 		ctx,
 		llm.model,
-		decoratedPrompt,
+		prompt.String(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("generating completion: %w", err)

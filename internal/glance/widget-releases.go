@@ -110,6 +110,7 @@ func (widget *releasesWidget) filter(query string) {
 	for _, e := range widget.Releases {
 		if match, ok := matchesMap[e.ID]; ok {
 			e.Summary = match.Highlight
+			e.MatchScore = match.Score
 			filtered = append(filtered, e)
 		}
 	}
@@ -141,6 +142,8 @@ type appRelease struct {
 	NotesUrl      string
 	TimeReleased  time.Time
 	Downvotes     int
+	MatchSummary  string
+	MatchScore    int
 }
 
 type appReleaseList []appRelease

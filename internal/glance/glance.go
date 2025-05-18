@@ -274,7 +274,8 @@ func (a *application) resolveUserDefinedAssetPath(path string) string {
 }
 
 type templateRequestData struct {
-	Theme *themeProperties
+	Theme  *themeProperties
+	Filter string
 }
 
 type templateData struct {
@@ -295,6 +296,7 @@ func (a *application) populateTemplateRequestData(data *templateRequestData, r *
 	}
 
 	data.Theme = theme
+	data.Filter = r.URL.Query().Get("filter")
 }
 
 func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) {
@@ -346,6 +348,8 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 	pageData := templateData{
 		Page: page,
 	}
+
+	a.populateTemplateRequestData(&pageData.Request, r)
 
 	var err error
 	var responseBytes bytes.Buffer

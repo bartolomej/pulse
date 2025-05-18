@@ -202,6 +202,7 @@ func (widget *hackerNewsWidget) filter(query string) {
 	for _, e := range widget.Posts {
 		if match, ok := matchesMap[e.ID]; ok {
 			e.MatchSummary = match.Highlight
+			e.MatchScore = match.Score
 			filtered = append(filtered, e)
 		}
 	}

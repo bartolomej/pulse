@@ -135,6 +135,7 @@ func (widget *rssWidget) filter(query string) {
 	for _, e := range widget.Items {
 		if match, ok := matchesMap[e.ID]; ok {
 			e.Summary = match.Highlight
+			e.MatchScore = match.Score
 			filtered = append(filtered, e)
 		}
 	}
@@ -167,6 +168,7 @@ type cachedRSSFeed struct {
 type rssFeedItem struct {
 	ID          string
 	Summary     string
+	MatchScore  int
 	ChannelName string
 	ChannelURL  string
 	Title       string
