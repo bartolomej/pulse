@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -107,6 +108,10 @@ func (widget *redditWidget) update(ctx context.Context) {
 	}
 
 	widget.Posts = posts
+
+	if widget.filterQuery != "" {
+		widget.filter(widget.filterQuery)
+	}
 }
 
 func (widget *redditWidget) Render() template.HTML {
@@ -128,6 +133,7 @@ type subredditResponseJson struct {
 			Data struct {
 				Id            string  `json:"id"`
 				Title         string  `json:"title"`
+				SelfText      string  `json:"selftext"`
 				Upvotes       int     `json:"ups"`
 				Url           string  `json:"url"`
 				Time          float64 `json:"created"`
@@ -239,7 +245,9 @@ func (widget *redditWidget) fetchSubredditPosts() (forumPostList, error) {
 		}
 
 		forumPost := forumPost{
+			ID:              post.Id,
 			Title:           html.UnescapeString(post.Title),
+			Description:     post.SelfText,
 			DiscussionUrl:   commentsUrl,
 			TargetUrlDomain: post.Domain,
 			CommentCount:    post.CommentsCount,
@@ -307,4 +315,46 @@ func (widget *redditWidget) fetchNewAppAccessToken() error {
 	app.tokenExpiresAt = time.Now().Add(time.Duration(response.ExpiresIn) * time.Second)
 
 	return nil
+}
+
+func (widget *redditWidget) filter(query string) {
+	llm, err := NewLLM()
+	if err != nil {
+		slog.Error("Failed to initialize LLM", "error", err)
+		return
+	}
+
+	feed := make([]feedEntry, 0, len(widget.Posts))
+	for _, e := range widget.Posts {
+		feed = append(feed, feedEntry{
+			ID:          e.ID,
+			Title:       e.Title,
+			Description: e.Description,
+			URL:         e.TargetUrl,
+			ImageURL:    e.ThumbnailUrl,
+			PublishedAt: e.TimePosted,
+		})
+	}
+
+	matches, err := llm.filterFeed(context.Background(), feed, query)
+
+	if err != nil {
+		slog.Error("Failed to filter reddit posts", "error", err)
+		return
+	}
+
+	matchesMap := make(map[string]feedMatch)
+	for _, match := range matches {
+		matchesMap[match.ID] = match
+	}
+
+	filtered := make(forumPostList, 0, len(matches))
+	for _, e := range widget.Posts {
+		if match, ok := matchesMap[e.ID]; ok {
+			e.MatchSummary = match.Highlight
+			filtered = append(filtered, e)
+		}
+	}
+
+	widget.Posts = filtered
 }

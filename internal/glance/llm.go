@@ -66,8 +66,6 @@ func (llm *LLM) structuredComplete(ctx context.Context, prompt string) ([]feedMa
 	schema := parser.GetFormatInstructions()
 	decoratedPrompt := fmt.Sprintf("%s\n\n%s", prompt, schema)
 
-	fmt.Printf("decoratedPrompt: %s\n", decoratedPrompt)
-
 	out, err := llms.GenerateFromSinglePrompt(
 		ctx,
 		llm.model,
@@ -76,8 +74,6 @@ func (llm *LLM) structuredComplete(ctx context.Context, prompt string) ([]feedMa
 	if err != nil {
 		return nil, fmt.Errorf("generating completion: %w", err)
 	}
-
-	fmt.Printf("out: %s\n", out)
 
 	response, err := parser.Parse(out)
 	if err != nil {

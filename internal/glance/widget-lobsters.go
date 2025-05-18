@@ -2,7 +2,9 @@ package glance
 
 import (
 	"context"
+	"fmt"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -56,6 +58,52 @@ func (widget *lobstersWidget) update(ctx context.Context) {
 	}
 
 	widget.Posts = posts
+
+	if widget.filterQuery != "" {
+		widget.filter(widget.filterQuery)
+	}
+}
+
+func (widget *lobstersWidget) filter(query string) {
+	llm, err := NewLLM()
+	if err != nil {
+		slog.Error("Failed to initialize LLM", "error", err)
+		return
+	}
+
+	feed := make([]feedEntry, 0, len(widget.Posts))
+
+	for _, e := range widget.Posts {
+		feed = append(feed, feedEntry{
+			ID:          e.ID,
+			Title:       e.Title,
+			Description: e.Description,
+			URL:         e.TargetUrl,
+			ImageURL:    "",
+			PublishedAt: e.TimePosted,
+		})
+	}
+
+	matches, err := llm.filterFeed(context.Background(), feed, query)
+	if err != nil {
+		slog.Error("Failed to filter lobsters posts", "error", err)
+		return
+	}
+
+	matchesMap := make(map[string]feedMatch)
+	for _, match := range matches {
+		matchesMap[match.ID] = match
+	}
+
+	filtered := make(forumPostList, 0, len(matches))
+	for _, e := range widget.Posts {
+		if match, ok := matchesMap[e.ID]; ok {
+			e.MatchSummary = match.Highlight
+			filtered = append(filtered, e)
+		}
+	}
+
+	widget.Posts = filtered
 }
 
 func (widget *lobstersWidget) Render() template.HTML {
@@ -63,6 +111,7 @@ func (widget *lobstersWidget) Render() template.HTML {
 }
 
 type lobstersPostResponseJson struct {
+	ID           string   `json:"short_id"`
 	CreatedAt    string   `json:"created_at"`
 	Title        string   `json:"title"`
 	URL          string   `json:"url"`
@@ -91,7 +140,10 @@ func fetchLobstersPostsFromFeed(feedUrl string) (forumPostList, error) {
 		createdAt, _ := time.Parse(time.RFC3339, feed[i].CreatedAt)
 
 		posts = append(posts, forumPost{
-			Title:           feed[i].Title,
+			ID:    feed[i].ID,
+			Title: feed[i].Title,
+			// TODO: Extract description from the referenced URL
+			Description:     feed[i].Title,
 			DiscussionUrl:   feed[i].CommentsURL,
 			TargetUrl:       feed[i].URL,
 			TargetUrlDomain: extractDomainFromUrl(feed[i].URL),

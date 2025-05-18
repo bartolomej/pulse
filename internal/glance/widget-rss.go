@@ -92,8 +92,6 @@ func (widget *rssWidget) update(ctx context.Context) {
 		items = items[:widget.Limit]
 	}
 
-	fmt.Printf("items: %d\n", len(items))
-
 	widget.Items = items
 
 	if widget.filterQuery != "" {
