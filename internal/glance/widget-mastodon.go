@@ -146,7 +146,7 @@ func convertMastodonPostToForumPost(post mastodonPostResponseJson) forumPost {
 	}
 
 	plainText := extractTextFromHTML(post.Content)
-	title := oneLineTitle(plainText, 80)
+	title := oneLineTitle(plainText, 50)
 
 	forumPost := forumPost{
 		ID:            post.ID,
@@ -156,7 +156,8 @@ func convertMastodonPostToForumPost(post mastodonPostResponseJson) forumPost {
 		CommentCount:  post.Replies,
 		Score:         post.Reblogs + post.Favorites,
 		TimePosted:    post.CreatedAt,
-		Tags:          tags,
+		// TODO(pulse): Hide tags for now, as they introduce too much noise
+		// Tags:          tags,
 	}
 
 	if len(post.MediaAttachments) > 0 {
