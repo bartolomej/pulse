@@ -29,7 +29,6 @@ type redditSource struct {
 	ExtraSortBy         string            `yaml:"extra-sort-by"`
 	CommentsURLTemplate string            `yaml:"comments-url-template"`
 	Limit               int               `yaml:"limit"`
-	CollapseAfter       int               `yaml:"collapse-after"`
 	RequestURLTemplate  string            `yaml:"request-url-template"`
 
 	AppAuth struct {
@@ -51,17 +50,13 @@ func (s *redditSource) Feed() []Activity {
 	return activities
 }
 
-func (s *redditSource) initialize() error {
+func (s *redditSource) Initialize() error {
 	if s.Subreddit == "" {
 		return errors.New("subreddit is required")
 	}
 
 	if s.Limit <= 0 {
 		s.Limit = 15
-	}
-
-	if s.CollapseAfter == 0 || s.CollapseAfter < -1 {
-		s.CollapseAfter = 5
 	}
 
 	sort := s.SortBy
@@ -96,7 +91,7 @@ func (s *redditSource) initialize() error {
 	return nil
 }
 
-func (s *redditSource) update(ctx context.Context) {
+func (s *redditSource) Update(ctx context.Context) {
 	posts, err := s.fetchSubredditPosts()
 	if !s.canContinueUpdateAfterHandlingErr(err) {
 		return

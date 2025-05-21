@@ -18,7 +18,6 @@ type hackerNewsSource struct {
 	Limit               int           `yaml:"limit"`
 	SortBy              string        `yaml:"sort-by"`
 	ExtraSortBy         string        `yaml:"extra-sort-by"`
-	CollapseAfter       int           `yaml:"collapse-after"`
 	CommentsUrlTemplate string        `yaml:"comments-url-template"`
 	ShowThumbnails      bool          `yaml:"-"`
 }
@@ -31,7 +30,7 @@ func (s *hackerNewsSource) Feed() []Activity {
 	return activities
 }
 
-func (s *hackerNewsSource) initialize() error {
+func (s *hackerNewsSource) Initialize() error {
 	s.
 		withTitle("Hacker News").
 		withTitleURL("https://news.ycombinator.com/").
@@ -41,10 +40,6 @@ func (s *hackerNewsSource) initialize() error {
 		s.Limit = 15
 	}
 
-	if s.CollapseAfter == 0 || s.CollapseAfter < -1 {
-		s.CollapseAfter = 5
-	}
-
 	if s.SortBy != "top" && s.SortBy != "new" && s.SortBy != "best" {
 		s.SortBy = "top"
 	}
@@ -52,7 +47,7 @@ func (s *hackerNewsSource) initialize() error {
 	return nil
 }
 
-func (s *hackerNewsSource) update(ctx context.Context) {
+func (s *hackerNewsSource) Update(ctx context.Context) {
 	posts, err := fetchHackerNewsPosts(s.SortBy, 40, s.CommentsUrlTemplate)
 
 	if !s.canContinueUpdateAfterHandlingErr(err) {

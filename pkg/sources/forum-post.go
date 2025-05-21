@@ -39,7 +39,7 @@ func (f forumPost) Body() string {
 }
 
 func (f forumPost) URL() string {
-	return f.TargetUrl
+	return f.DiscussionUrl
 }
 
 func (f forumPost) ImageURL() string {

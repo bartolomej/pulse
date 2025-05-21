@@ -248,7 +248,7 @@ func (p *page) updateOutdatedWidgets() error {
 	ctx := context.Background()
 
 	for _, widget := range allWidgets {
-		if !widget.source().RequiresUpdate(&now) {
+		if !widget.requiresUpdate(&now) {
 			continue
 		}
 

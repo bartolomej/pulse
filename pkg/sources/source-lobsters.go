@@ -16,7 +16,6 @@ type lobstersSource struct {
 	InstanceURL    string        `yaml:"instance-url"`
 	CustomURL      string        `yaml:"custom-url"`
 	Limit          int           `yaml:"limit"`
-	CollapseAfter  int           `yaml:"collapse-after"`
 	SortBy         string        `yaml:"sort-by"`
 	Tags           []string      `yaml:"tags"`
 	ShowThumbnails bool          `yaml:"-"`
@@ -30,7 +29,7 @@ func (s *lobstersSource) Feed() []Activity {
 	return activities
 }
 
-func (s *lobstersSource) initialize() error {
+func (s *lobstersSource) Initialize() error {
 	s.withTitle("Lobsters").withCacheDuration(time.Hour)
 
 	if s.InstanceURL == "" {
@@ -47,14 +46,10 @@ func (s *lobstersSource) initialize() error {
 		s.Limit = 15
 	}
 
-	if s.CollapseAfter == 0 || s.CollapseAfter < -1 {
-		s.CollapseAfter = 5
-	}
-
 	return nil
 }
 
-func (s *lobstersSource) update(ctx context.Context) {
+func (s *lobstersSource) Update(ctx context.Context) {
 	posts, err := fetchLobstersPosts(s.CustomURL, s.InstanceURL, s.SortBy, s.Tags)
 
 	if !s.canContinueUpdateAfterHandlingErr(err) {

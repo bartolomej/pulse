@@ -27,7 +27,6 @@ type rssSource struct {
 	ThumbnailHeight  float64          `yaml:"thumbnail-height"`
 	CardHeight       float64          `yaml:"card-height"`
 	Limit            int              `yaml:"limit"`
-	CollapseAfter    int              `yaml:"collapse-after"`
 	SingleLineTitles bool             `yaml:"single-line-titles"`
 	PreserveOrder    bool             `yaml:"preserve-order"`
 
@@ -46,15 +45,11 @@ func (s *rssSource) Feed() []Activity {
 	return activities
 }
 
-func (s *rssSource) initialize() error {
+func (s *rssSource) Initialize() error {
 	s.withTitle("RSS Feed").withCacheDuration(2 * time.Hour)
 
 	if s.Limit <= 0 {
 		s.Limit = 25
-	}
-
-	if s.CollapseAfter == 0 || s.CollapseAfter < -1 {
-		s.CollapseAfter = 5
 	}
 
 	if s.ThumbnailHeight < 0 {
@@ -77,7 +72,7 @@ func (s *rssSource) initialize() error {
 	return nil
 }
 
-func (s *rssSource) update(ctx context.Context) {
+func (s *rssSource) Update(ctx context.Context) {
 	items, err := s.fetchItemsFromFeeds()
 
 	if !s.canContinueUpdateAfterHandlingErr(err) {

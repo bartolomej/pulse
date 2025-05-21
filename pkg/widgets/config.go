@@ -232,7 +232,7 @@ func parseConfigVariableOfType(variableType, variableName string) (string, bool,
 }
 
 func formatWidgetInitError(err error, w widget) error {
-	return fmt.Errorf("%s widget: %v", w.GetType(), err)
+	return fmt.Errorf("%s widget: %v", w.Type(), err)
 }
 
 var configIncludePattern = regexp.MustCompile(`(?m)^([ \t]*)(?:-[ \t]*)?(?:!|\$)include:[ \t]*(.+)$`)

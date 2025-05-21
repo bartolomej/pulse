@@ -10,17 +10,16 @@ import (
 	"time"
 )
 
-type changeDetectionWidget struct {
+type changeDetectionSource struct {
 	sourceBase       `yaml:",inline"`
 	ChangeDetections changeDetectionWatchList `yaml:"-"`
 	WatchUUIDs       []string                 `yaml:"watches"`
 	InstanceURL      string                   `yaml:"instance-url"`
 	Token            string                   `yaml:"token"`
 	Limit            int                      `yaml:"limit"`
-	CollapseAfter    int                      `yaml:"collapse-after"`
 }
 
-func (s *changeDetectionWidget) Feed() []Activity {
+func (s *changeDetectionSource) Feed() []Activity {
 	activities := make([]Activity, len(s.ChangeDetections))
 	for i, c := range s.ChangeDetections {
 		activities[i] = c
@@ -28,15 +27,11 @@ func (s *changeDetectionWidget) Feed() []Activity {
 	return activities
 }
 
-func (s *changeDetectionWidget) initialize() error {
+func (s *changeDetectionSource) Initialize() error {
 	s.withTitle("Change Detection").withCacheDuration(1 * time.Hour)
 
 	if s.Limit <= 0 {
 		s.Limit = 10
-	}
-
-	if s.CollapseAfter == 0 || s.CollapseAfter < -1 {
-		s.CollapseAfter = 5
 	}
 
 	if s.InstanceURL == "" {
@@ -46,7 +41,7 @@ func (s *changeDetectionWidget) initialize() error {
 	return nil
 }
 
-func (s *changeDetectionWidget) update(ctx context.Context) {
+func (s *changeDetectionSource) Update(ctx context.Context) {
 	if len(s.WatchUUIDs) == 0 {
 		uuids, err := fetchWatchUUIDsFromChangeDetection(s.InstanceURL, string(s.Token))
 

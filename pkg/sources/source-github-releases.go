@@ -23,7 +23,6 @@ type githubReleasesSource struct {
 	Token          string            `yaml:"token"`
 	GitLabToken    string            `yaml:"gitlab-token"`
 	Limit          int               `yaml:"limit"`
-	CollapseAfter  int               `yaml:"collapse-after"`
 	ShowSourceIcon bool              `yaml:"show-source-icon"`
 }
 
@@ -35,15 +34,11 @@ func (s *githubReleasesSource) Feed() []Activity {
 	return activities
 }
 
-func (s *githubReleasesSource) initialize() error {
+func (s *githubReleasesSource) Initialize() error {
 	s.withTitle("Releases").withCacheDuration(2 * time.Hour)
 
 	if s.Limit <= 0 {
 		s.Limit = 10
-	}
-
-	if s.CollapseAfter == 0 || s.CollapseAfter < -1 {
-		s.CollapseAfter = 5
 	}
 
 	for i := range s.Repositories {
@@ -59,7 +54,7 @@ func (s *githubReleasesSource) initialize() error {
 	return nil
 }
 
-func (s *githubReleasesSource) update(ctx context.Context) {
+func (s *githubReleasesSource) Update(ctx context.Context) {
 	releases, err := fetchLatestReleases(s.Repositories)
 
 	if !s.canContinueUpdateAfterHandlingErr(err) {

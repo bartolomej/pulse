@@ -21,7 +21,6 @@ type githubIssuesSource struct {
 	Repositories  []*issueRequest   `yaml:"repositories"`
 	Token         string            `yaml:"token"`
 	Limit         int               `yaml:"limit"`
-	CollapseAfter int               `yaml:"collapse-after"`
 	ActivityTypes []string          `yaml:"activity-types"`
 }
 
@@ -35,7 +34,6 @@ func (s *githubIssuesSource) Feed() []Activity {
 
 type issueActivity struct {
 	ID            string
-	Summary       string
 	Description   string
 	Source        string
 	SourceIconURL string
@@ -109,15 +107,11 @@ func (i *issueRequest) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-func (s *githubIssuesSource) initialize() error {
+func (s *githubIssuesSource) Initialize() error {
 	s.withTitle("Issue Activity").withCacheDuration(30 * time.Minute)
 
 	if s.Limit <= 0 {
 		s.Limit = 10
-	}
-
-	if s.CollapseAfter == 0 || s.CollapseAfter < -1 {
-		s.CollapseAfter = 5
 	}
 
 	if len(s.ActivityTypes) == 0 {
@@ -134,7 +128,7 @@ func (s *githubIssuesSource) initialize() error {
 	return nil
 }
 
-func (s *githubIssuesSource) update(ctx context.Context) {
+func (s *githubIssuesSource) Update(ctx context.Context) {
 	activities, err := fetchIssueActivities(s.Repositories, s.ActivityTypes)
 
 	if !s.canContinueUpdateAfterHandlingErr(err) {

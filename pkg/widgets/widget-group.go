@@ -22,9 +22,9 @@ func (widget *groupWidget) initialize() error {
 	for i := range widget.Widgets {
 		widget.Widgets[i].setHideHeader(true)
 
-		if widget.Widgets[i].GetType() == "group" {
+		if widget.Widgets[i].Type() == "group" {
 			return errors.New("nested groups are not supported")
-		} else if widget.Widgets[i].GetType() == "split-column" {
+		} else if widget.Widgets[i].Type() == "split-column" {
 			return errors.New("split columns inside of groups are not supported")
 		}
 	}

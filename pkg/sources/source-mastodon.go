@@ -20,7 +20,6 @@ type mastodonSource struct {
 	Accounts       []string      `yaml:"accounts"`
 	Hashtags       []string      `yaml:"hashtags"`
 	Limit          int           `yaml:"limit"`
-	CollapseAfter  int           `yaml:"collapse-after"`
 	ShowThumbnails bool          `yaml:"-"`
 }
 
@@ -32,7 +31,7 @@ func (s *mastodonSource) Feed() []Activity {
 	return activities
 }
 
-func (s *mastodonSource) initialize() error {
+func (s *mastodonSource) Initialize() error {
 	if s.InstanceURL == "" {
 		return fmt.Errorf("instance-url is required")
 	}
@@ -46,14 +45,10 @@ func (s *mastodonSource) initialize() error {
 		s.Limit = 15
 	}
 
-	if s.CollapseAfter == 0 || s.CollapseAfter < -1 {
-		s.CollapseAfter = 5
-	}
-
 	return nil
 }
 
-func (s *mastodonSource) update(ctx context.Context) {
+func (s *mastodonSource) Update(ctx context.Context) {
 	posts, err := fetchMastodonPosts(s.InstanceURL, s.Accounts, s.Hashtags)
 
 	if !s.canContinueUpdateAfterHandlingErr(err) {

@@ -22,20 +22,22 @@ func newWidget(widgetType string) (widget, error) {
 		return nil, errors.New("widget 'type' property is empty or not specified")
 	}
 
+	base := widgetBase{
+		ID:  widgetIDCounter.Add(1),
+		typ: widgetType,
+	}
 	var w widget
 
 	switch widgetType {
 	case "group":
-		w = &groupWidget{}
+		w = &groupWidget{widgetBase: base}
 	case "split-column":
-		w = &splitColumnWidget{}
+		w = &splitColumnWidget{widgetBase: base}
 	default:
 		// widget type is treated as a data source type in this case,
 		// which depends on the base widget that renders the generic widget display card
-		w = &widgetBase{}
+		w = &base
 	}
-
-	w.setID(widgetIDCounter.Add(1))
 
 	return w, nil
 }
@@ -62,16 +64,20 @@ func (w *widgets) UnmarshalYAML(node *yaml.Node) error {
 		if err != nil {
 			return fmt.Errorf("line %d: %w", node.Line, err)
 		}
-
-		source, err := sources.NewSource(meta.Type)
-		if err != nil {
-			return fmt.Errorf("line %d: %w", node.Line, err)
-		}
-
-		widget.setSource(source)
-
 		if err = node.Decode(widget); err != nil {
 			return err
+		}
+
+		if meta.Type != "group" && meta.Type != "split-column" {
+			source, err := sources.NewSource(meta.Type)
+			if err != nil {
+				return fmt.Errorf("line %d: %w", node.Line, err)
+			}
+			if err = node.Decode(source); err != nil {
+				return err
+			}
+
+			widget.setSource(source)
 		}
 
 		*w = append(*w, widget)
@@ -83,16 +89,15 @@ func (w *widgets) UnmarshalYAML(node *yaml.Node) error {
 type widget interface {
 	// These need to be exported because they get called in templates
 	Render() template.HTML
-	GetType() string
+	Type() string
 	GetID() uint64
 
 	initialize() error
 	setProviders(*widgetProviders)
 	update(context.Context)
-	setID(uint64)
+	requiresUpdate(now *time.Time) bool
 	handleRequest(w http.ResponseWriter, r *http.Request)
 	setHideHeader(bool)
-	source() sources.Source
 	setSource(sources.Source)
 }
 
@@ -114,15 +119,14 @@ const (
 )
 
 type widgetBase struct {
-	ID               uint64           `yaml:"-"`
-	Providers        *widgetProviders `yaml:"-"`
-	Type             string           `yaml:"type"`
-	HideHeader       bool             `yaml:"hide-header"`
-	CSSClass         string           `yaml:"css-class"`
-	ContentAvailable bool             `yaml:"-"`
-	WIP              bool             `yaml:"-"`
-	Error            error            `yaml:"-"`
-	Notice           error            `yaml:"-"`
+	ID            uint64           `yaml:"-"`
+	Providers     *widgetProviders `yaml:"-"`
+	typ           string           `yaml:"type"`
+	HideHeader    bool             `yaml:"hide-header"`
+	CSSClass      string           `yaml:"css-class"`
+	Error         error            `yaml:"-"`
+	CollapseAfter int              `yaml:"collapse-after"`
+	Notice        error            `yaml:"-"`
 	// Source TODO(pulse): Temporary store source on a widget. Later it should be stored in a source registry and only passed to the widget for rendering.
 	Source         sources.Source `yaml:"-"`
 	templateBuffer bytes.Buffer   `yaml:"-"`
@@ -132,12 +136,17 @@ type widgetProviders struct {
 	assetResolver func(string) string
 }
 
-func (w *widgetBase) IsWIP() bool {
-	return w.WIP
+func (w *widgetBase) requiresUpdate(now *time.Time) bool {
+	if w.Source != nil {
+		return w.Source.RequiresUpdate(now)
+	}
+	return false
 }
 
 func (w *widgetBase) update(ctx context.Context) {
-
+	if w.Source != nil {
+		w.Source.Update(ctx)
+	}
 }
 
 func (w *widgetBase) GetID() uint64 {
@@ -156,8 +165,12 @@ func (widget *widgetBase) handleRequest(w http.ResponseWriter, r *http.Request) 
 	http.Error(w, "not implemented", http.StatusNotImplemented)
 }
 
-func (w *widgetBase) GetType() string {
-	return w.Type
+func (w *widgetBase) Type() string {
+	return w.typ
+}
+
+func (w *widgetBase) setType(t string) {
+	w.typ = t
 }
 
 func (w *widgetBase) setProviders(providers *widgetProviders) {
@@ -172,21 +185,23 @@ func (w *widgetBase) setSource(s sources.Source) {
 	w.Source = s
 }
 
+var widgetBaseContentTemplate = mustParseTemplate("widget-base-content.html", "widget-base.html")
+
 func (w *widgetBase) Render() template.HTML {
-	//TODO(pulse) render the generic widget card
-	panic("implement me")
+	return w.renderTemplate(w, widgetBaseContentTemplate)
 }
 
 func (w *widgetBase) initialize() error {
-	//TODO(pulse) implement me
-	panic("implement me")
+	if w.CollapseAfter <= 0 {
+		w.CollapseAfter = 3
+	}
+	return w.Source.Initialize()
 }
 
 func (w *widgetBase) renderTemplate(data any, t *template.Template) template.HTML {
 	w.templateBuffer.Reset()
 	err := t.Execute(&w.templateBuffer, data)
 	if err != nil {
-		w.ContentAvailable = false
 		w.Error = err
 
 		slog.Error("Failed to render template", "error", err)

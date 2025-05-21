@@ -1,6 +1,7 @@
 package sources
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -12,27 +13,30 @@ func NewSource(widgetType string) (Source, error) {
 		return nil, errors.New("widget 'type' property is empty or not specified")
 	}
 
+	base := sourceBase{
+		sourceType: widgetType,
+	}
 	var s Source
 
 	switch widgetType {
 	case "mastodon":
-		s = &mastodonSource{}
+		s = &mastodonSource{sourceBase: base}
 	case "hacker-news":
-		s = &hackerNewsSource{}
+		s = &hackerNewsSource{sourceBase: base}
 	case "reddit":
-		s = &redditSource{}
+		s = &redditSource{sourceBase: base}
 	case "lobsters":
-		s = &lobstersSource{}
+		s = &lobstersSource{sourceBase: base}
 	case "rss":
-		s = &rssSource{}
+		s = &rssSource{sourceBase: base}
 	case "releases":
-		s = &githubReleasesSource{}
+		s = &githubReleasesSource{sourceBase: base}
 	case "issues":
-		s = &githubIssuesSource{}
+		s = &githubIssuesSource{sourceBase: base}
 	case "change-detection":
-		s = &changeDetectionWidget{}
+		s = &changeDetectionSource{sourceBase: base}
 	default:
-		return nil, fmt.Errorf("unknown widget type: %s", widgetType)
+		return nil, fmt.Errorf("unknown source type: %s", widgetType)
 	}
 
 	return s, nil
@@ -40,11 +44,16 @@ func NewSource(widgetType string) (Source, error) {
 
 // Source TODO(pulse): Feed() returns cached activities, but refactor it to fetch fresh activities given filters and cache them in a global activity registry.
 type Source interface {
+	Type() string
 	// Feed return cached feed entries in a standard Activity format.
 	Feed() []Activity
+	Initialize() error
+	// Update TODO(pulse): remove the need for update function on the resource (updates should be managed in global source registry)
+	Update(ctx context.Context)
 	RequiresUpdate(now *time.Time) bool
 }
 
+// Activity TODO(pulse): Compute LLM summary
 type Activity interface {
 	UID() string
 	Title() string
@@ -52,7 +61,6 @@ type Activity interface {
 	URL() string
 	ImageURL() string
 	CreatedAt() time.Time
-	// TODO: Add Metadata() that returns custom fields?
 }
 
 type cacheType int
@@ -64,10 +72,10 @@ const (
 )
 
 type sourceBase struct {
-	ID                  uint64           `yaml:"-"`
-	Title               string           `yaml:"title"`
+	ID    uint64 `yaml:"-"`
+	Title string `yaml:"title"`
+	// TitleURL TODO(pulse): remove or rename this field
 	TitleURL            string           `yaml:"title-url"`
-	ContentAvailable    bool             `yaml:"-"`
 	Error               error            `yaml:"-"`
 	Notice              error            `yaml:"-"`
 	Providers           *sourceProviders `yaml:"-"`
@@ -76,11 +84,16 @@ type sourceBase struct {
 	cacheType           cacheType        `yaml:"-"`
 	nextUpdate          time.Time        `yaml:"-"`
 	updateRetriedTimes  int              `yaml:"-"`
+	sourceType          string           `yaml:"-"`
 }
 
 // TODO(pulse): Do we need this?
 type sourceProviders struct {
 	assetResolver func(string) string
+}
+
+func (s *sourceBase) Type() string {
+	return s.sourceType
 }
 
 func (w *sourceBase) withTitle(title string) *sourceBase {
@@ -178,10 +191,6 @@ func (w *sourceBase) withNotice(err error) *sourceBase {
 }
 
 func (w *sourceBase) withError(err error) *sourceBase {
-	if err == nil && !w.ContentAvailable {
-		w.ContentAvailable = true
-	}
-
 	w.Error = err
 
 	return w
