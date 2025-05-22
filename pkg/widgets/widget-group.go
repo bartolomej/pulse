@@ -3,18 +3,19 @@ package widgets
 import (
 	"context"
 	"errors"
+	"github.com/glanceapp/glance/web"
 	"html/template"
 	"time"
 )
 
-var groupWidgetTemplate = mustParseTemplate("group.html", "widget-base.html")
+var groupWidgetTemplate = web.MustParseTemplate("group.html", "widget-base.html")
 
 type groupWidget struct {
 	widgetBase          `yaml:",inline"`
 	containerWidgetBase `yaml:",inline"`
 }
 
-func (widget *groupWidget) initialize() error {
+func (widget *groupWidget) Initialize() error {
 	// TODO(pulse): Refactor error handling
 	//widget.withError(nil)
 	widget.HideHeader = true
@@ -36,15 +37,15 @@ func (widget *groupWidget) initialize() error {
 	return nil
 }
 
-func (widget *groupWidget) update(ctx context.Context) {
+func (widget *groupWidget) Update(ctx context.Context) {
 	widget.containerWidgetBase._update(ctx)
 }
 
-func (widget *groupWidget) setProviders(providers *widgetProviders) {
+func (widget *groupWidget) SetProviders(providers *WidgetProviders) {
 	widget.containerWidgetBase._setProviders(providers)
 }
 
-func (widget *groupWidget) requiresUpdate(now *time.Time) bool {
+func (widget *groupWidget) RequiresUpdate(now *time.Time) bool {
 	return widget.containerWidgetBase._requiresUpdate(now)
 }
 

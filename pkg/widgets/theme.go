@@ -1,51 +1,26 @@
 package widgets
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/glanceapp/glance/web"
 	"html/template"
-	"net/http"
-	"time"
+	"regexp"
 )
 
 var (
-	themeStyleTemplate         = mustParseTemplate("theme-style.gotmpl")
-	themePresetPreviewTemplate = mustParseTemplate("theme-preset-preview.html")
+	themeStyleTemplate         = web.MustParseTemplate("theme-style.gotmpl")
+	themePresetPreviewTemplate = web.MustParseTemplate("theme-preset-preview.html")
 )
 
-func (a *application) handleThemeChangeRequest(w http.ResponseWriter, r *http.Request) {
-	themeKey := r.PathValue("key")
-
-	properties, exists := a.Config.Theme.Presets.Get(themeKey)
-	if !exists && themeKey != "default" {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	if themeKey == "default" {
-		properties = &a.Config.Theme.themeProperties
-	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     "theme",
-		Value:    themeKey,
-		Path:     a.Config.Server.BaseURL + "/",
-		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(2 * 365 * 24 * time.Hour),
-	})
-
-	w.Header().Set("Content-Type", "text/css")
-	w.Header().Set("X-Scheme", ternary(properties.Light, "light", "dark"))
-	w.Write([]byte(properties.CSS))
-}
-
-type themeProperties struct {
-	BackgroundColor          *hslColorField `yaml:"background-color"`
-	PrimaryColor             *hslColorField `yaml:"primary-color"`
-	PositiveColor            *hslColorField `yaml:"positive-color"`
-	NegativeColor            *hslColorField `yaml:"negative-color"`
-	Light                    bool           `yaml:"light"`
-	ContrastMultiplier       float32        `yaml:"contrast-multiplier"`
-	TextSaturationMultiplier float32        `yaml:"text-saturation-multiplier"`
+type Theme struct {
+	BackgroundColor          *HSLColor `yaml:"background-color"`
+	PrimaryColor             *HSLColor `yaml:"primary-color"`
+	PositiveColor            *HSLColor `yaml:"positive-color"`
+	NegativeColor            *HSLColor `yaml:"negative-color"`
+	Light                    bool      `yaml:"light"`
+	ContrastMultiplier       float32   `yaml:"contrast-multiplier"`
+	TextSaturationMultiplier float32   `yaml:"text-saturation-multiplier"`
 
 	Key                  string        `yaml:"-"`
 	CSS                  template.CSS  `yaml:"-"`
@@ -53,7 +28,9 @@ type themeProperties struct {
 	BackgroundColorAsHex string        `yaml:"-"`
 }
 
-func (t *themeProperties) init() error {
+var whitespaceAtBeginningOfLinePattern = regexp.MustCompile(`(?m)^\s+`)
+
+func (t *Theme) Init() error {
 	css, err := executeTemplateToString(themeStyleTemplate, t)
 	if err != nil {
 		return fmt.Errorf("compiling theme style: %v", err)
@@ -75,7 +52,7 @@ func (t *themeProperties) init() error {
 	return nil
 }
 
-func (t1 *themeProperties) SameAs(t2 *themeProperties) bool {
+func (t1 *Theme) SameAs(t2 *Theme) bool {
 	if t1 == nil && t2 == nil {
 		return true
 	}
@@ -91,17 +68,27 @@ func (t1 *themeProperties) SameAs(t2 *themeProperties) bool {
 	if t1.TextSaturationMultiplier != t2.TextSaturationMultiplier {
 		return false
 	}
-	if !t1.BackgroundColor.SameAs(t2.BackgroundColor) {
+	if t1.BackgroundColor != t2.BackgroundColor {
 		return false
 	}
-	if !t1.PrimaryColor.SameAs(t2.PrimaryColor) {
+	if t1.PrimaryColor != t2.PrimaryColor {
 		return false
 	}
-	if !t1.PositiveColor.SameAs(t2.PositiveColor) {
+	if t1.PositiveColor != t2.PositiveColor {
 		return false
 	}
-	if !t1.NegativeColor.SameAs(t2.NegativeColor) {
+	if t1.NegativeColor != t2.NegativeColor {
 		return false
 	}
 	return true
+}
+
+func executeTemplateToString(t *template.Template, data any) (string, error) {
+	var b bytes.Buffer
+	err := t.Execute(&b, data)
+	if err != nil {
+		return "", fmt.Errorf("executing template: %w", err)
+	}
+
+	return b.String(), nil
 }

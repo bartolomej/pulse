@@ -1,22 +1,18 @@
-package widgets
+package server
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/widgets"
+	"gopkg.in/yaml.v3"
 	"html/template"
 	"iter"
-	"log"
 	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
-	"time"
-
-	"github.com/fsnotify/fsnotify"
-	"gopkg.in/yaml.v3"
 )
 
 const CONFIG_INCLUDE_RECURSION_DEPTH_LIMIT = 20
@@ -27,7 +23,7 @@ const (
 	configVarTypeFileFromEnv = "readFileFromEnv"
 )
 
-type config struct {
+type Config struct {
 	Server struct {
 		Host       string `yaml:"host"`
 		Port       uint16 `yaml:"port"`
@@ -46,9 +42,9 @@ type config struct {
 	} `yaml:"document"`
 
 	Theme struct {
-		themeProperties `yaml:",inline"`
-		CustomCSSFile   string                                   `yaml:"custom-css-file"`
-		Presets         orderedYAMLMap[string, *themeProperties] `yaml:"presets"`
+		widgets.Theme `yaml:",inline"`
+		CustomCSSFile string                                 `yaml:"custom-css-file"`
+		Presets       orderedYAMLMap[string, *widgets.Theme] `yaml:"presets"`
 	} `yaml:"theme"`
 
 	Branding struct {
@@ -73,29 +69,29 @@ type user struct {
 }
 
 type page struct {
-	Title                  string  `yaml:"name"`
-	Slug                   string  `yaml:"slug"`
-	Width                  string  `yaml:"width"`
-	DesktopNavigationWidth string  `yaml:"desktop-navigation-width"`
-	ShowMobileHeader       bool    `yaml:"show-mobile-header"`
-	HideDesktopNavigation  bool    `yaml:"hide-desktop-navigation"`
-	CenterVertically       bool    `yaml:"center-vertically"`
-	HeadWidgets            widgets `yaml:"head-widgets"`
+	Title                  string          `yaml:"name"`
+	Slug                   string          `yaml:"slug"`
+	Width                  string          `yaml:"width"`
+	DesktopNavigationWidth string          `yaml:"desktop-navigation-width"`
+	ShowMobileHeader       bool            `yaml:"show-mobile-header"`
+	HideDesktopNavigation  bool            `yaml:"hide-desktop-navigation"`
+	CenterVertically       bool            `yaml:"center-vertically"`
+	HeadWidgets            widgets.Widgets `yaml:"head-widgets"`
 	Columns                []struct {
-		Size    string  `yaml:"size"`
-		Widgets widgets `yaml:"widgets"`
+		Size    string          `yaml:"size"`
+		Widgets widgets.Widgets `yaml:"widgets"`
 	} `yaml:"columns"`
 	PrimaryColumnIndex int8       `yaml:"-"`
 	mu                 sync.Mutex `yaml:"-"`
 }
 
-func newConfigFromYAML(contents []byte) (*config, error) {
+func NewConfigFromYAML(contents []byte) (*Config, error) {
 	contents, err := parseConfigVariables(contents)
 	if err != nil {
 		return nil, err
 	}
 
-	config := &config{}
+	config := &Config{}
 	config.Server.Port = 8080
 
 	err = yaml.Unmarshal(contents, config)
@@ -109,14 +105,14 @@ func newConfigFromYAML(contents []byte) (*config, error) {
 
 	for p := range config.Pages {
 		for w := range config.Pages[p].HeadWidgets {
-			if err := config.Pages[p].HeadWidgets[w].initialize(); err != nil {
+			if err := config.Pages[p].HeadWidgets[w].Initialize(); err != nil {
 				return nil, formatWidgetInitError(err, config.Pages[p].HeadWidgets[w])
 			}
 		}
 
 		for c := range config.Pages[p].Columns {
 			for w := range config.Pages[p].Columns[c].Widgets {
-				if err := config.Pages[p].Columns[c].Widgets[w].initialize(); err != nil {
+				if err := config.Pages[p].Columns[c].Widgets[w].Initialize(); err != nil {
 					return nil, formatWidgetInitError(err, config.Pages[p].Columns[c].Widgets[w])
 				}
 			}
@@ -231,13 +227,13 @@ func parseConfigVariableOfType(variableType, variableName string) (string, bool,
 	}
 }
 
-func formatWidgetInitError(err error, w widget) error {
+func formatWidgetInitError(err error, w widgets.Widget) error {
 	return fmt.Errorf("%s widget: %v", w.Type(), err)
 }
 
 var configIncludePattern = regexp.MustCompile(`(?m)^([ \t]*)(?:-[ \t]*)?(?:!|\$)include:[ \t]*(.+)$`)
 
-func parseYAMLIncludes(mainFilePath string) ([]byte, map[string]struct{}, error) {
+func ParseYAMLIncludes(mainFilePath string) ([]byte, map[string]struct{}, error) {
 	return recursiveParseYAMLIncludes(mainFilePath, nil, 0)
 }
 
@@ -300,153 +296,11 @@ func recursiveParseYAMLIncludes(mainFilePath string, includes map[string]struct{
 	return mainFileContents, includes, nil
 }
 
-func configFilesWatcher(
-	mainFilePath string,
-	lastContents []byte,
-	lastIncludes map[string]struct{},
-	onChange func(newContents []byte),
-	onErr func(error),
-) (func() error, error) {
-	mainFileAbsPath, err := filepath.Abs(mainFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("getting absolute path of main file: %w", err)
-	}
-
-	// TODO: refactor, flaky
-	lastIncludes[mainFileAbsPath] = struct{}{}
-
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, fmt.Errorf("creating watcher: %w", err)
-	}
-
-	updateWatchedFiles := func(previousWatched map[string]struct{}, newWatched map[string]struct{}) {
-		for filePath := range previousWatched {
-			if _, ok := newWatched[filePath]; !ok {
-				watcher.Remove(filePath)
-			}
-		}
-
-		for filePath := range newWatched {
-			if _, ok := previousWatched[filePath]; !ok {
-				if err := watcher.Add(filePath); err != nil {
-					log.Printf(
-						"Could not add file to watcher, changes to this file will not trigger a reload. path: %s, error: %v",
-						filePath, err,
-					)
-				}
-			}
-		}
-	}
-
-	updateWatchedFiles(nil, lastIncludes)
-
-	// needed for lastContents and lastIncludes because they get updated in multiple goroutines
-	mu := sync.Mutex{}
-
-	parseAndCompareBeforeCallback := func() {
-		currentContents, currentIncludes, err := parseYAMLIncludes(mainFilePath)
-		if err != nil {
-			onErr(fmt.Errorf("parsing main file contents for comparison: %w", err))
-			return
-		}
-
-		// TODO: refactor, flaky
-		currentIncludes[mainFileAbsPath] = struct{}{}
-
-		mu.Lock()
-		defer mu.Unlock()
-
-		if !maps.Equal(currentIncludes, lastIncludes) {
-			updateWatchedFiles(lastIncludes, currentIncludes)
-			lastIncludes = currentIncludes
-		}
-
-		if !bytes.Equal(lastContents, currentContents) {
-			lastContents = currentContents
-			onChange(currentContents)
-		}
-	}
-
-	const debounceDuration = 500 * time.Millisecond
-	var debounceTimer *time.Timer
-	debouncedParseAndCompareBeforeCallback := func() {
-		if debounceTimer != nil {
-			debounceTimer.Stop()
-			debounceTimer.Reset(debounceDuration)
-		} else {
-			debounceTimer = time.AfterFunc(debounceDuration, parseAndCompareBeforeCallback)
-		}
-	}
-
-	deleteLastInclude := func(filePath string) {
-		mu.Lock()
-		defer mu.Unlock()
-		fileAbsPath, _ := filepath.Abs(filePath)
-		delete(lastIncludes, fileAbsPath)
-	}
-
-	go func() {
-		for {
-			select {
-			case event, isOpen := <-watcher.Events:
-				if !isOpen {
-					return
-				}
-				if event.Has(fsnotify.Write) {
-					debouncedParseAndCompareBeforeCallback()
-				} else if event.Has(fsnotify.Rename) {
-					// on linux the file will no longer be watched after a rename, on windows
-					// it will continue to be watched with the new name but we have no access to
-					// the new name in this event in order to stop watching it manually and match the
-					// behavior in linux, may lead to weird unintended behaviors on windows as we're
-					// only handling renames from linux's perspective
-					// see https://github.com/fsnotify/fsnotify/issues/255
-
-					// remove the old file from our manually tracked includes, calling
-					// debouncedParseAndCompareBeforeCallback will re-add it if it's still
-					// required after it triggers
-					deleteLastInclude(event.Name)
-
-					// wait for file to maybe get created again
-					// see https://github.com/glanceapp/glance/pull/358
-					for range 10 {
-						if _, err := os.Stat(event.Name); err == nil {
-							break
-						}
-						time.Sleep(200 * time.Millisecond)
-					}
-
-					debouncedParseAndCompareBeforeCallback()
-				} else if event.Has(fsnotify.Remove) {
-					deleteLastInclude(event.Name)
-					debouncedParseAndCompareBeforeCallback()
-				}
-			case err, isOpen := <-watcher.Errors:
-				if !isOpen {
-					return
-				}
-				onErr(fmt.Errorf("watcher error: %w", err))
-			}
-		}
-	}()
-
-	onChange(lastContents)
-
-	return func() error {
-		if debounceTimer != nil {
-			debounceTimer.Stop()
-		}
-
-		return watcher.Close()
-	}, nil
-}
-
 // TODO: Refactor, we currently validate in two different places, this being
 // one of them, which doesn't modify the data and only checks for logical errors
-// and then again when creating the application which does modify the data and do
+// and then again when creating the Application which does modify the data and do
 // further validation. Would be better if validation was done in a single place.
-func isConfigStateValid(config *config) error {
+func isConfigStateValid(config *Config) error {
 	if len(config.Pages) == 0 {
 		return fmt.Errorf("no pages configured")
 	}

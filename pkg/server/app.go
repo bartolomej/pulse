@@ -1,4 +1,4 @@
-package widgets
+package server
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/glanceapp/glance/pkg/sources"
+	"github.com/glanceapp/glance/pkg/widgets"
 	"github.com/glanceapp/glance/web"
 	"log"
 	"net/http"
@@ -21,24 +22,24 @@ import (
 )
 
 var (
-	pageTemplate        = mustParseTemplate("page.html", "document.html", "footer.html")
-	pageContentTemplate = mustParseTemplate("page-content.html")
-	manifestTemplate    = mustParseTemplate("manifest.json")
+	pageTemplate        = web.MustParseTemplate("page.html", "document.html", "footer.html")
+	pageContentTemplate = web.MustParseTemplate("page-content.html")
+	manifestTemplate    = web.MustParseTemplate("manifest.json")
 )
 
 const STATIC_ASSETS_CACHE_DURATION = 24 * time.Hour
 
 var reservedPageSlugs = []string{"login", "logout"}
 
-type application struct {
+type Application struct {
 	Version   string
 	CreatedAt time.Time
-	Config    config
+	Config    Config
 
 	parsedManifest []byte
 
 	slugToPage map[string]*page
-	widgetByID map[uint64]widget
+	widgetByID map[uint64]widgets.Widget
 
 	RequiresAuth           bool
 	authSecretKey          []byte
@@ -47,13 +48,13 @@ type application struct {
 	failedAuthAttempts     map[string]*failedAuthAttempt
 }
 
-func newApplication(c *config) (*application, error) {
-	app := &application{
+func NewApplication(c *Config) (*Application, error) {
+	app := &Application{
 		Version:    sources.BuildVersion,
 		CreatedAt:  time.Now(),
 		Config:     *c,
 		slugToPage: make(map[string]*page),
-		widgetByID: make(map[uint64]widget),
+		widgetByID: make(map[uint64]widgets.Widget),
 	}
 	config := &app.Config
 
@@ -105,20 +106,17 @@ func newApplication(c *config) (*application, error) {
 	//
 
 	themeKeys := make([]string, 0, 2)
-	themeProps := make([]*themeProperties, 0, 2)
+	themeProps := make([]*widgets.Theme, 0, 2)
 
-	defaultDarkTheme, ok := config.Theme.Presets.Get("default-dark")
-	if ok && !config.Theme.SameAs(defaultDarkTheme) || !config.Theme.SameAs(&themeProperties{}) {
-		themeKeys = append(themeKeys, "default-dark")
-		themeProps = append(themeProps, &themeProperties{})
-	}
+	themeKeys = append(themeKeys, "default-dark")
+	themeProps = append(themeProps, &widgets.Theme{})
 
 	themeKeys = append(themeKeys, "default-light")
-	themeProps = append(themeProps, &themeProperties{
+	themeProps = append(themeProps, &widgets.Theme{
 		Light:                    true,
-		BackgroundColor:          &hslColorField{240, 13, 95},
-		PrimaryColor:             &hslColorField{230, 100, 30},
-		NegativeColor:            &hslColorField{0, 70, 50},
+		BackgroundColor:          &widgets.HSLColor{H: 240, S: 13, L: 95},
+		PrimaryColor:             &widgets.HSLColor{H: 230, S: 100, L: 30},
+		NegativeColor:            &widgets.HSLColor{S: 70, L: 50},
 		ContrastMultiplier:       1.3,
 		TextSaturationMultiplier: 0.5,
 	})
@@ -131,13 +129,13 @@ func newApplication(c *config) (*application, error) {
 
 	for key, properties := range config.Theme.Presets.Items() {
 		properties.Key = key
-		if err := properties.init(); err != nil {
+		if err := properties.Init(); err != nil {
 			return nil, fmt.Errorf("initializing preset theme %s: %v", key, err)
 		}
 	}
 
 	config.Theme.Key = "default"
-	if err := config.Theme.init(); err != nil {
+	if err := config.Theme.Init(); err != nil {
 		return nil, fmt.Errorf("initializing default theme: %v", err)
 	}
 
@@ -147,8 +145,8 @@ func newApplication(c *config) (*application, error) {
 
 	app.slugToPage[""] = &config.Pages[0]
 
-	providers := &widgetProviders{
-		assetResolver: app.StaticAssetPath,
+	providers := &widgets.WidgetProviders{
+		AssetResolver: app.StaticAssetPath,
 	}
 
 	for p := range config.Pages {
@@ -176,7 +174,7 @@ func newApplication(c *config) (*application, error) {
 		for i := range page.HeadWidgets {
 			widget := page.HeadWidgets[i]
 			app.widgetByID[widget.GetID()] = widget
-			widget.setProviders(providers)
+			widget.SetProviders(providers)
 		}
 
 		for c := range page.Columns {
@@ -189,7 +187,7 @@ func newApplication(c *config) (*application, error) {
 			for w := range column.Widgets {
 				widget := column.Widgets[w]
 				app.widgetByID[widget.GetID()] = widget
-				widget.setProviders(providers)
+				widget.SetProviders(providers)
 			}
 		}
 	}
@@ -234,7 +232,7 @@ func newApplication(c *config) (*application, error) {
 func (p *page) updateOutdatedWidgets() error {
 	now := time.Now()
 
-	var allWidgets []widget
+	var allWidgets []widgets.Widget
 	for w := range p.HeadWidgets {
 		allWidgets = append(allWidgets, p.HeadWidgets[w])
 	}
@@ -248,12 +246,12 @@ func (p *page) updateOutdatedWidgets() error {
 	ctx := context.Background()
 
 	for _, widget := range allWidgets {
-		if !widget.requiresUpdate(&now) {
+		if !widget.RequiresUpdate(&now) {
 			continue
 		}
 
 		eg.Go(func() error {
-			widget.update(ctx)
+			widget.Update(ctx)
 			// TODO: Handle errors
 			return nil
 		})
@@ -267,7 +265,7 @@ func (p *page) updateOutdatedWidgets() error {
 	return nil
 }
 
-func (a *application) resolveUserDefinedAssetPath(path string) string {
+func (a *Application) resolveUserDefinedAssetPath(path string) string {
 	if strings.HasPrefix(path, "/assets/") {
 		return a.Config.Server.BaseURL + path
 	}
@@ -276,18 +274,18 @@ func (a *application) resolveUserDefinedAssetPath(path string) string {
 }
 
 type templateRequestData struct {
-	Theme  *themeProperties
+	Theme  *widgets.Theme
 	Filter string
 }
 
 type templateData struct {
-	App     *application
+	App     *Application
 	Page    *page
 	Request templateRequestData
 }
 
-func (a *application) populateTemplateRequestData(data *templateRequestData, r *http.Request) {
-	theme := &a.Config.Theme.themeProperties
+func (a *Application) populateTemplateRequestData(data *templateRequestData, r *http.Request) {
+	theme := &a.Config.Theme.Theme
 
 	selectedTheme, err := r.Cookie("theme")
 	if err == nil {
@@ -301,7 +299,7 @@ func (a *application) populateTemplateRequestData(data *templateRequestData, r *
 	data.Filter = r.URL.Query().Get("filter")
 }
 
-func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) {
+func (a *Application) handlePageRequest(w http.ResponseWriter, r *http.Request) {
 	page, exists := a.slugToPage[r.PathValue("page")]
 	if !exists {
 		a.handleNotFound(w, r)
@@ -329,7 +327,7 @@ func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 	w.Write(responseBytes.Bytes())
 }
 
-func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Request) {
+func (a *Application) handlePageContentRequest(w http.ResponseWriter, r *http.Request) {
 	page, exists := a.slugToPage[r.PathValue("page")]
 	if !exists {
 		a.handleNotFound(w, r)
@@ -369,7 +367,7 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 	w.Write(responseBytes.Bytes())
 }
 
-func (a *application) addressOfRequest(r *http.Request) string {
+func (a *Application) addressOfRequest(r *http.Request) string {
 	remoteAddrWithoutPort := func() string {
 		for i := len(r.RemoteAddr) - 1; i >= 0; i-- {
 			if r.RemoteAddr[i] == ':' {
@@ -398,13 +396,13 @@ func (a *application) addressOfRequest(r *http.Request) string {
 	return ips[0]
 }
 
-func (a *application) handleNotFound(w http.ResponseWriter, _ *http.Request) {
+func (a *Application) handleNotFound(w http.ResponseWriter, _ *http.Request) {
 	// TODO: add proper not found page
 	w.WriteHeader(http.StatusNotFound)
 	w.Write([]byte("Page not found"))
 }
 
-func (a *application) handleWidgetRequest(w http.ResponseWriter, r *http.Request) {
+func (a *Application) handleWidgetRequest(w http.ResponseWriter, r *http.Request) {
 	// TODO: this requires a rework of the widget update logic so that rather
 	// than locking the entire page we lock individual widgets
 	w.WriteHeader(http.StatusNotImplemented)
@@ -427,23 +425,22 @@ func (a *application) handleWidgetRequest(w http.ResponseWriter, r *http.Request
 	// widget.handleRequest(w, r)
 }
 
-func (a *application) StaticAssetPath(asset string) string {
+func (a *Application) StaticAssetPath(asset string) string {
 	return a.Config.Server.BaseURL + "/static/" + web.StaticFSHash + "/" + asset
 }
 
-func (a *application) VersionedAssetPath(asset string) string {
+func (a *Application) VersionedAssetPath(asset string) string {
 	return a.Config.Server.BaseURL + asset +
 		"?v=" + strconv.FormatInt(a.CreatedAt.Unix(), 10)
 }
 
-func (a *application) server() (func() error, func() error) {
+func (a *Application) Server() (func() error, func() error) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /{$}", a.handlePageRequest)
 	mux.HandleFunc("GET /{page}", a.handlePageRequest)
 
 	mux.HandleFunc("GET /api/pages/{page}/content/{$}", a.handlePageContentRequest)
-	mux.HandleFunc("POST /api/set-theme/{key}", a.handleThemeChangeRequest)
 	mux.HandleFunc("/api/widgets/{widget}/{path...}", a.handleWidgetRequest)
 	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -476,7 +473,7 @@ func (a *application) server() (func() error, func() error) {
 
 	mux.HandleFunc("GET /manifest.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Cache-Control", assetCacheControlValue)
-		w.Header().Add("Content-Type", "application/json")
+		w.Header().Add("Content-Type", "Application/json")
 		w.Write(a.parsedManifest)
 	})
 

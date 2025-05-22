@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/glanceapp/glance/pkg/sources"
+	"github.com/glanceapp/glance/web"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -17,7 +18,7 @@ import (
 
 var widgetIDCounter atomic.Uint64
 
-func newWidget(widgetType string) (widget, error) {
+func NewWidget(widgetType string) (Widget, error) {
 	if widgetType == "" {
 		return nil, errors.New("widget 'type' property is empty or not specified")
 	}
@@ -26,7 +27,7 @@ func newWidget(widgetType string) (widget, error) {
 		ID:  widgetIDCounter.Add(1),
 		typ: widgetType,
 	}
-	var w widget
+	var w Widget
 
 	switch widgetType {
 	case "group":
@@ -42,9 +43,9 @@ func newWidget(widgetType string) (widget, error) {
 	return w, nil
 }
 
-type widgets []widget
+type Widgets []Widget
 
-func (w *widgets) UnmarshalYAML(node *yaml.Node) error {
+func (w *Widgets) UnmarshalYAML(node *yaml.Node) error {
 	var nodes []yaml.Node
 
 	if err := node.Decode(&nodes); err != nil {
@@ -60,7 +61,7 @@ func (w *widgets) UnmarshalYAML(node *yaml.Node) error {
 			return err
 		}
 
-		widget, err := newWidget(meta.Type)
+		widget, err := NewWidget(meta.Type)
 		if err != nil {
 			return fmt.Errorf("line %d: %w", node.Line, err)
 		}
@@ -86,16 +87,16 @@ func (w *widgets) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-type widget interface {
+type Widget interface {
 	// These need to be exported because they get called in templates
 	Render() template.HTML
 	Type() string
 	GetID() uint64
 
-	initialize() error
-	setProviders(*widgetProviders)
-	update(context.Context)
-	requiresUpdate(now *time.Time) bool
+	Initialize() error
+	SetProviders(*WidgetProviders)
+	Update(context.Context)
+	RequiresUpdate(now *time.Time) bool
 	handleRequest(w http.ResponseWriter, r *http.Request)
 	setHideHeader(bool)
 	setSource(sources.Source)
@@ -120,7 +121,7 @@ const (
 
 type widgetBase struct {
 	ID            uint64           `yaml:"-"`
-	Providers     *widgetProviders `yaml:"-"`
+	Providers     *WidgetProviders `yaml:"-"`
 	typ           string           `yaml:"type"`
 	HideHeader    bool             `yaml:"hide-header"`
 	CSSClass      string           `yaml:"css-class"`
@@ -132,18 +133,18 @@ type widgetBase struct {
 	templateBuffer bytes.Buffer   `yaml:"-"`
 }
 
-type widgetProviders struct {
-	assetResolver func(string) string
+type WidgetProviders struct {
+	AssetResolver func(string) string
 }
 
-func (w *widgetBase) requiresUpdate(now *time.Time) bool {
+func (w *widgetBase) RequiresUpdate(now *time.Time) bool {
 	if w.Source != nil {
 		return w.Source.RequiresUpdate(now)
 	}
 	return false
 }
 
-func (w *widgetBase) update(ctx context.Context) {
+func (w *widgetBase) Update(ctx context.Context) {
 	if w.Source != nil {
 		w.Source.Update(ctx)
 	}
@@ -173,7 +174,7 @@ func (w *widgetBase) setType(t string) {
 	w.typ = t
 }
 
-func (w *widgetBase) setProviders(providers *widgetProviders) {
+func (w *widgetBase) SetProviders(providers *WidgetProviders) {
 	w.Providers = providers
 }
 
@@ -185,13 +186,13 @@ func (w *widgetBase) setSource(s sources.Source) {
 	w.Source = s
 }
 
-var widgetBaseContentTemplate = mustParseTemplate("widget-base-content.html", "widget-base.html")
+var widgetBaseContentTemplate = web.MustParseTemplate("widget-base-content.html", "widget-base.html")
 
 func (w *widgetBase) Render() template.HTML {
 	return w.renderTemplate(w, widgetBaseContentTemplate)
 }
 
-func (w *widgetBase) initialize() error {
+func (w *widgetBase) Initialize() error {
 	if w.CollapseAfter <= 0 {
 		w.CollapseAfter = 3
 	}

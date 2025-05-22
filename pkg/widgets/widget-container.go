@@ -2,17 +2,18 @@ package widgets
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 )
 
 type containerWidgetBase struct {
-	Widgets widgets `yaml:"widgets"`
+	Widgets Widgets `yaml:"widgets"`
 }
 
 func (widget *containerWidgetBase) _initializeWidgets() error {
 	for i := range widget.Widgets {
-		if err := widget.Widgets[i].initialize(); err != nil {
+		if err := widget.Widgets[i].Initialize(); err != nil {
 			return formatWidgetInitError(err, widget.Widgets[i])
 		}
 	}
@@ -27,32 +28,36 @@ func (widget *containerWidgetBase) _update(ctx context.Context) {
 	for w := range widget.Widgets {
 		widget := widget.Widgets[w]
 
-		if !widget.requiresUpdate(&now) {
+		if !widget.RequiresUpdate(&now) {
 			continue
 		}
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			widget.update(ctx)
+			widget.Update(ctx)
 		}()
 	}
 
 	wg.Wait()
 }
 
-func (widget *containerWidgetBase) _setProviders(providers *widgetProviders) {
+func (widget *containerWidgetBase) _setProviders(providers *WidgetProviders) {
 	for i := range widget.Widgets {
-		widget.Widgets[i].setProviders(providers)
+		widget.Widgets[i].SetProviders(providers)
 	}
 }
 
 func (widget *containerWidgetBase) _requiresUpdate(now *time.Time) bool {
 	for i := range widget.Widgets {
-		if widget.Widgets[i].requiresUpdate(now) {
+		if widget.Widgets[i].RequiresUpdate(now) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func formatWidgetInitError(err error, w Widget) error {
+	return fmt.Errorf("%s widget: %v", w.Type(), err)
 }

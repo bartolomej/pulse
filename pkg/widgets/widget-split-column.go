@@ -2,11 +2,12 @@ package widgets
 
 import (
 	"context"
+	"github.com/glanceapp/glance/web"
 	"html/template"
 	"time"
 )
 
-var splitColumnWidgetTemplate = mustParseTemplate("split-column.html", "widget-base.html")
+var splitColumnWidgetTemplate = web.MustParseTemplate("split-column.html", "widget-base.html")
 
 type splitColumnWidget struct {
 	widgetBase          `yaml:",inline"`
@@ -14,7 +15,7 @@ type splitColumnWidget struct {
 	MaxColumns          int `yaml:"max-columns"`
 }
 
-func (widget *splitColumnWidget) initialize() error {
+func (widget *splitColumnWidget) Initialize() error {
 	// TODO(pulse): Refactor error handling
 	//widget.withError(nil).withTitle("Split Column").setHideHeader(true)
 
@@ -29,15 +30,15 @@ func (widget *splitColumnWidget) initialize() error {
 	return nil
 }
 
-func (widget *splitColumnWidget) update(ctx context.Context) {
+func (widget *splitColumnWidget) Update(ctx context.Context) {
 	widget.containerWidgetBase._update(ctx)
 }
 
-func (widget *splitColumnWidget) setProviders(providers *widgetProviders) {
+func (widget *splitColumnWidget) SetProviders(providers *WidgetProviders) {
 	widget.containerWidgetBase._setProviders(providers)
 }
 
-func (widget *splitColumnWidget) requiresUpdate(now *time.Time) bool {
+func (widget *splitColumnWidget) RequiresUpdate(now *time.Time) bool {
 	return widget.containerWidgetBase._requiresUpdate(now)
 }
 

@@ -1,4 +1,4 @@
-package widgets
+package server
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"github.com/glanceapp/glance/web"
 	"io"
 	"log"
 	mathrand "math/rand/v2"
@@ -35,7 +36,7 @@ const AUTH_TOKEN_VALID_PERIOD = 14 * 24 * time.Hour // 14 days
 // How long the token has left before it should be regenerated
 const AUTH_TOKEN_REGEN_BEFORE = 7 * 24 * time.Hour // 7 days
 
-var loginPageTemplate = mustParseTemplate("login.html", "document.html", "footer.html")
+var loginPageTemplate = web.MustParseTemplate("login.html", "document.html", "footer.html")
 
 type doWhenUnauthorized int
 
@@ -131,8 +132,8 @@ func makeAuthSecretKey(length int) (string, error) {
 	return base64.StdEncoding.EncodeToString(key), nil
 }
 
-func (a *application) handleAuthenticationAttempt(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("Content-Type") != "application/json" {
+func (a *Application) handleAuthenticationAttempt(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Content-Type") != "Application/json" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -247,7 +248,7 @@ func (a *application) handleAuthenticationAttempt(w http.ResponseWriter, r *http
 	w.WriteHeader(http.StatusOK)
 }
 
-func (a *application) isAuthorized(w http.ResponseWriter, r *http.Request) bool {
+func (a *Application) isAuthorized(w http.ResponseWriter, r *http.Request) bool {
 	if !a.RequiresAuth {
 		return true
 	}
@@ -286,7 +287,7 @@ func (a *application) isAuthorized(w http.ResponseWriter, r *http.Request) bool 
 }
 
 // Handles sending the appropriate response for an unauthorized request and returns true if the request was unauthorized
-func (a *application) handleUnauthorizedResponse(w http.ResponseWriter, r *http.Request, fallback doWhenUnauthorized) bool {
+func (a *Application) handleUnauthorizedResponse(w http.ResponseWriter, r *http.Request, fallback doWhenUnauthorized) bool {
 	if a.isAuthorized(w, r) {
 		return false
 	}
@@ -303,12 +304,12 @@ func (a *application) handleUnauthorizedResponse(w http.ResponseWriter, r *http.
 }
 
 // Maybe this should be a POST request instead?
-func (a *application) handleLogoutRequest(w http.ResponseWriter, r *http.Request) {
+func (a *Application) handleLogoutRequest(w http.ResponseWriter, r *http.Request) {
 	a.setAuthSessionCookie(w, r, "", time.Now().Add(-1*time.Hour))
 	http.Redirect(w, r, a.Config.Server.BaseURL+"/login", http.StatusSeeOther)
 }
 
-func (a *application) setAuthSessionCookie(w http.ResponseWriter, r *http.Request, token string, expires time.Time) {
+func (a *Application) setAuthSessionCookie(w http.ResponseWriter, r *http.Request, token string, expires time.Time) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     AUTH_SESSION_COOKIE_NAME,
 		Value:    token,
@@ -320,7 +321,7 @@ func (a *application) setAuthSessionCookie(w http.ResponseWriter, r *http.Reques
 	})
 }
 
-func (a *application) handleLoginPageRequest(w http.ResponseWriter, r *http.Request) {
+func (a *Application) handleLoginPageRequest(w http.ResponseWriter, r *http.Request) {
 	if a.isAuthorized(w, r) {
 		http.Redirect(w, r, a.Config.Server.BaseURL+"/", http.StatusSeeOther)
 		return
