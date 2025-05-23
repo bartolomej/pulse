@@ -5,30 +5,12 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 	"time"
 )
 
 var sequentialWhitespacePattern = regexp.MustCompile(`\s+`)
-var whitespaceAtBeginningOfLinePattern = regexp.MustCompile(`(?m)^\s+`)
-
-func percentChange(current, previous float64) float64 {
-	if previous == 0 {
-		if current == 0 {
-			return 0 // 0% change if both are 0
-		}
-		return 100 // 100% increase if going from 0 to something
-	}
-
-	return (current/previous - 1) * 100
-}
-
-func isRunningInsideDockerContainer() bool {
-	_, err := os.Stat("/.dockerenv")
-	return err == nil
-}
 
 func prefixStringLines(prefix string, s string) string {
 	lines := strings.Split(s, "\n")
@@ -57,14 +39,6 @@ func fileServerWithCache(fs http.FileSystem, cacheDuration time.Duration) http.H
 		w.Header().Set("Cache-Control", cacheControlValue)
 		server.ServeHTTP(w, r)
 	})
-}
-
-func itemAtIndexOrDefault[T any](items []T, index int, def T) T {
-	if index >= len(items) {
-		return def
-	}
-
-	return items[index]
 }
 
 func ternary[T any](condition bool, a, b T) T {

@@ -57,7 +57,7 @@ func (c *LobstersClient) fetchStories(ctx context.Context, url string) ([]*Story
 	}
 
 	var stories []*Story
-	stories, err = common.decodeJsonFromRequest[[]*Story](c.httpClient, req)
+	stories, err = common.DecodeJSONFromRequest[[]*Story](c.httpClient, req)
 	if err != nil {
 		return nil, fmt.Errorf("fetching stories: %v", err)
 	}
@@ -81,7 +81,7 @@ func (c *LobstersClient) GetStoriesFromCustomURL(ctx context.Context, url string
 	}
 
 	var stories []*Story
-	stories, err = common.decodeJsonFromRequest[[]*Story](c.httpClient, req)
+	stories, err = common.DecodeJSONFromRequest[[]*Story](c.httpClient, req)
 	if err != nil {
 		return nil, fmt.Errorf("fetching stories: %v", err)
 	}

@@ -15,18 +15,18 @@ import (
 )
 
 type SourceSubreddit struct {
-	Subreddit          string `yaml:"subreddit"`
-	SortBy             string `yaml:"sort-by"`
-	TopPeriod          string `yaml:"top-period"`
-	Search             string `yaml:"search"`
-	Limit              int    `yaml:"limit"`
-	RequestURLTemplate string `yaml:"request-url-template"`
+	Subreddit          string `json:"subreddit"`
+	SortBy             string `json:"sort-by"`
+	TopPeriod          string `json:"top-period"`
+	Search             string `json:"search"`
+	Limit              int    `json:"limit"`
+	RequestURLTemplate string `json:"request-url-template"`
 	client             *reddit.Client
 	AppAuth            struct {
-		Name   string `yaml:"name"`
-		ID     string `yaml:"ID"`
-		Secret string `yaml:"secret"`
-	} `yaml:"app-auth"`
+		Name   string `json:"name"`
+		ID     string `json:"ID"`
+		Secret string `json:"secret"`
+	} `json:"auth"`
 }
 
 func NewSourceSubreddit() *SourceSubreddit {
@@ -93,12 +93,12 @@ func (s *SourceSubreddit) Initialize() error {
 
 	sort := s.SortBy
 	if sort != "hot" && sort != "new" && sort != "top" && sort != "rising" {
-		s.SortBy = "hot"
+		return errors.New("sort by must be one of: 'hot', 'new', 'top', 'rising'")
 	}
 
 	p := s.TopPeriod
 	if p != "hour" && p != "day" && p != "week" && p != "month" && p != "year" && p != "all" {
-		s.TopPeriod = "day"
+		return errors.New("top period must be one of: 'hour', 'day', 'week', 'month', 'year', 'all'")
 	}
 
 	if s.RequestURLTemplate != "" {
@@ -120,7 +120,7 @@ func (s *SourceSubreddit) Initialize() error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("creating reddit client: %v", err)
+		return fmt.Errorf("create reddit client: %v", err)
 	}
 
 	s.client = client
@@ -132,7 +132,7 @@ func (s *SourceSubreddit) Stream(ctx context.Context, feed chan<- common.Activit
 	posts, err := s.fetchSubredditPosts(ctx)
 
 	if err != nil {
-		errs <- fmt.Errorf("fetching posts: %v", err)
+		errs <- fmt.Errorf("fetch posts: %v", err)
 		return
 	}
 

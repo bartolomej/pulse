@@ -29,8 +29,8 @@ func (t *customTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 type SourceFeed struct {
-	FeedURL string            `yaml:"url"`
-	Headers map[string]string `yaml:"headers"`
+	FeedURL string            `json:"url"`
+	Headers map[string]string `json:"headers"`
 }
 
 func NewSourceFeed() *SourceFeed {

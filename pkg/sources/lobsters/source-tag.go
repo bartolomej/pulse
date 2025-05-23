@@ -7,9 +7,9 @@ import (
 )
 
 type SourceTag struct {
-	InstanceURL string `yaml:"instance-url"`
-	CustomURL   string `yaml:"custom-url"`
-	Tag         string `yaml:"tag"`
+	InstanceURL string `json:"instance_url"`
+	CustomURL   string `json:"custom_url"`
+	Tag         string `json:"tag"`
 	client      *LobstersClient
 }
 

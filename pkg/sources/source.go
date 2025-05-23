@@ -2,8 +2,8 @@ package sources
 
 import (
 	"context"
-	"errors"
 	"fmt"
+
 	"github.com/glanceapp/glance/pkg/sources/changedetection"
 	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/glanceapp/glance/pkg/sources/github"
@@ -14,36 +14,32 @@ import (
 	"github.com/glanceapp/glance/pkg/sources/rss"
 )
 
-func NewSource(widgetType string) (Source, error) {
-	if widgetType == "" {
-		return nil, errors.New("widget 'type' property is empty or not specified")
-	}
-
+func NewSource(sourceType string) (Source, error) {
 	var s Source
 
-	switch widgetType {
+	switch sourceType {
 	case "mastodon-account":
 		s = mastodon.NewSourceAccount()
 	case "mastodon-tag":
 		s = mastodon.NewSourceTag()
-	case "hacker-news":
-		s = hackernews.NewHackerNewsSource()
-	case "reddit":
+	case "hackernews-posts":
+		s = hackernews.NewSourcePosts()
+	case "reddit-subreddit":
 		s = reddit.NewSourceSubreddit()
 	case "lobsters-tag":
 		s = lobsters.NewSourceTag()
 	case "lobsters-feed":
 		s = lobsters.NewSourceFeed()
-	case "rss":
+	case "rss-feed":
 		s = rss.NewSourceFeed()
-	case "releases":
+	case "github-releases":
 		s = github.NewReleaseSource()
-	case "issues":
+	case "github-issues":
 		s = github.NewIssuesSource()
-	case "change-detection":
+	case "changedetection-website-change":
 		s = changedetection.NewSourceWebsiteChange()
 	default:
-		return nil, fmt.Errorf("unknown source type: %s", widgetType)
+		return nil, fmt.Errorf("unknown source type: %s", sourceType)
 	}
 
 	return s, nil

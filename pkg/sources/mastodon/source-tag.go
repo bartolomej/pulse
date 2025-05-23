@@ -8,8 +8,8 @@ import (
 )
 
 type SourceTag struct {
-	InstanceURL string
-	Hashtag     string
+	InstanceURL string `json:"instance_url"`
+	Tag         string `json:"tag"`
 }
 
 func NewSourceTag() *SourceTag {
@@ -19,22 +19,22 @@ func NewSourceTag() *SourceTag {
 }
 
 func (s *SourceTag) UID() string {
-	return fmt.Sprintf("mastodon/%s/%s", s.InstanceURL, s.Hashtag)
+	return fmt.Sprintf("mastodon/%s/%s", s.InstanceURL, s.Tag)
 }
 
 func (s *SourceTag) Name() string {
-	return fmt.Sprintf("Mastodon (%s)", s.Hashtag)
+	return fmt.Sprintf("Mastodon (%s)", s.Tag)
 }
 
 func (s *SourceTag) URL() string {
-	return fmt.Sprintf("%s/tags/%s", s.InstanceURL, s.Hashtag)
+	return fmt.Sprintf("%s/tags/%s", s.InstanceURL, s.Tag)
 }
 
 func (s *SourceTag) Initialize() error {
 	if s.InstanceURL == "" {
 		return fmt.Errorf("instance URL is required")
 	}
-	if s.Hashtag == "" {
+	if s.Tag == "" {
 		return fmt.Errorf("hashtag is required")
 	}
 
@@ -49,7 +49,7 @@ func (s *SourceTag) Stream(ctx context.Context, feed chan<- common.Activity, err
 	})
 
 	limit := 15
-	posts, err := fetchHashtagPosts(client, s.Hashtag, limit)
+	posts, err := fetchHashtagPosts(client, s.Tag, limit)
 	if err != nil {
 		errs <- fmt.Errorf("failed to fetch posts: %w", err)
 		return

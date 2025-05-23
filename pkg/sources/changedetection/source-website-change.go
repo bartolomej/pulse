@@ -10,10 +10,10 @@ import (
 )
 
 type SourceWebsiteChange struct {
-	WatchUUID   string `yaml:"watch"`
-	InstanceURL string `yaml:"instance-url"`
-	Token       string `yaml:"token"`
-	Limit       int    `yaml:"limit"`
+	WatchUUID   string `json:"watch"`
+	InstanceURL string `json:"instance_url"`
+	Token       string `json:"token"`
+	Limit       int    `json:"limit"`
 }
 
 func NewSourceWebsiteChange() *SourceWebsiteChange {

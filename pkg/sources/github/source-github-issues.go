@@ -13,9 +13,8 @@ import (
 )
 
 type SourceIssues struct {
-	Repository string `yaml:"repository"`
-	Token      string `yaml:"token"`
-	Limit      int    `yaml:"limit"`
+	Repository string `json:"repository"`
+	Token      string `json:"token"`
 	client     *github.Client
 }
 
@@ -73,10 +72,6 @@ func (i issueActivityList) sortByNewest() issueActivityList {
 }
 
 func (s *SourceIssues) Initialize() error {
-	if s.Limit <= 0 {
-		s.Limit = 10
-	}
-
 	token := s.Token
 	if token == "" {
 		token = os.Getenv("GITHUB_TOKEN")

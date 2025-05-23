@@ -8,8 +8,9 @@ import (
 )
 
 type SourceAccount struct {
-	InstanceURL string
-	Account     string
+	InstanceURL string `json:"instance_url"`
+	Account     string `json:"account"`
+	client      *mastodon.Client
 }
 
 func NewSourceAccount() *SourceAccount {
@@ -31,33 +32,26 @@ func (s *SourceAccount) URL() string {
 }
 
 func (s *SourceAccount) Initialize() error {
-	if s.InstanceURL == "" {
-		return fmt.Errorf("instance URL is required")
-	}
-	if s.Account == "" {
-		return fmt.Errorf("account is required")
-	}
-
-	return nil
-}
-
-func (s *SourceAccount) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
-	client := mastodon.NewClient(&mastodon.Config{
+	s.client = mastodon.NewClient(&mastodon.Config{
 		Server:       s.InstanceURL,
 		ClientID:     "pulse-feed-aggregation",
 		ClientSecret: "pulse-feed-aggregation",
 	})
 
-	accountID, err := getAccountID(client, s.Account)
+	return nil
+}
+
+func (s *SourceAccount) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
+	account, err := s.fetchAccount(ctx)
 	if err != nil {
-		errs <- fmt.Errorf("failed to get account ID: %w", err)
+		errs <- fmt.Errorf("fetch account: %w", err)
 		return
 	}
 
-	limit := 15
-	posts, err := fetchAccountPosts(client, accountID, limit)
+	limit := int64(15)
+	posts, err := s.fetchAccountPosts(ctx, account.ID, limit)
 	if err != nil {
-		errs <- fmt.Errorf("failed to fetch posts: %w", err)
+		errs <- fmt.Errorf("fetch posts: %w", err)
 		return
 	}
 
@@ -66,25 +60,25 @@ func (s *SourceAccount) Stream(ctx context.Context, feed chan<- common.Activity,
 	}
 }
 
-func getAccountID(client *mastodon.Client, account string) (mastodon.ID, error) {
-	accounts, err := client.Search(context.Background(), account, false)
+func (s *SourceAccount) fetchAccount(ctx context.Context) (*mastodon.Account, error) {
+	accounts, err := s.client.Search(ctx, s.Account, false)
 	if err != nil {
-		return "", fmt.Errorf("failed to search for account: %w", err)
+		return nil, fmt.Errorf("search account: %w", err)
 	}
 
 	if len(accounts.Accounts) == 0 {
-		return "", fmt.Errorf("account not found: %s", account)
+		return nil, fmt.Errorf("account not found: %s", s.Account)
 	}
 
-	return accounts.Accounts[0].ID, nil
+	return accounts.Accounts[0], nil
 }
 
-func fetchAccountPosts(client *mastodon.Client, accountID mastodon.ID, limit int) ([]*mastodonPost, error) {
-	statuses, err := client.GetAccountStatuses(context.Background(), accountID, &mastodon.Pagination{
-		Limit: int64(limit),
+func (s *SourceAccount) fetchAccountPosts(ctx context.Context, accountID mastodon.ID, limit int64) ([]*mastodonPost, error) {
+	statuses, err := s.client.GetAccountStatuses(ctx, accountID, &mastodon.Pagination{
+		Limit: limit,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get account statuses: %w", err)
+		return nil, fmt.Errorf("fetch account statuses: %w", err)
 	}
 
 	posts := make([]*mastodonPost, len(statuses))

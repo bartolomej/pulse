@@ -3,33 +3,34 @@ package hackernews
 import (
 	"context"
 	"fmt"
-	"github.com/glanceapp/glance/pkg/sources/common"
 	"log/slog"
 	"time"
+
+	"github.com/glanceapp/glance/pkg/sources/common"
 
 	"github.com/alexferrari88/gohn/pkg/gohn"
 	"github.com/go-shiori/go-readability"
 )
 
 type SourcePosts struct {
-	SortBy string `yaml:"sort-by"`
-	client *gohn.Client
+	FeedName string `json:"feed_name"`
+	client   *gohn.Client
 }
 
-func NewHackerNewsSource() *SourcePosts {
+func NewSourcePosts() *SourcePosts {
 	return &SourcePosts{}
 }
 
 func (s *SourcePosts) UID() string {
-	return fmt.Sprintf("hackernews/%s", s.SortBy)
+	return fmt.Sprintf("hackernews/%s", s.FeedName)
 }
 
 func (s *SourcePosts) Name() string {
-	return fmt.Sprintf("HackerNews (%s)", s.SortBy)
+	return fmt.Sprintf("HackerNews (%s)", s.FeedName)
 }
 
 func (s *SourcePosts) URL() string {
-	return fmt.Sprintf("https://news.ycombinator.com/%s", s.SortBy)
+	return fmt.Sprintf("https://news.ycombinator.com/%s", s.FeedName)
 }
 
 type hackerNewsPost struct {
@@ -73,14 +74,14 @@ func (p *hackerNewsPost) CreatedAt() time.Time {
 }
 
 func (s *SourcePosts) Initialize() error {
-	if s.SortBy != "top" && s.SortBy != "new" && s.SortBy != "best" {
-		s.SortBy = "top"
+	if s.FeedName != "top" && s.FeedName != "new" && s.FeedName != "best" {
+		return fmt.Errorf("feed name must be one of: 'top', 'new', 'best'")
 	}
 
 	var err error
 	s.client, err = gohn.NewClient(nil)
 	if err != nil {
-		return fmt.Errorf("creating hacker news client: %v", err)
+		return fmt.Errorf("init client: %v", err)
 	}
 
 	return nil
@@ -90,7 +91,7 @@ func (s *SourcePosts) Stream(ctx context.Context, feed chan<- common.Activity, e
 	posts, err := s.fetchHackerNewsPosts(ctx)
 
 	if err != nil {
-		errs <- fmt.Errorf("fetching posts: %v", err)
+		errs <- fmt.Errorf("fetch posts: %v", err)
 		return
 	}
 
@@ -104,7 +105,7 @@ func (s *SourcePosts) fetchHackerNewsPosts(ctx context.Context) ([]*hackerNewsPo
 	var storyIDs []*int
 	var err error
 
-	switch s.SortBy {
+	switch s.FeedName {
 	case "top":
 		storyIDs, err = s.client.Stories.GetTopIDs(ctx)
 	case "new":
@@ -114,7 +115,7 @@ func (s *SourcePosts) fetchHackerNewsPosts(ctx context.Context) ([]*hackerNewsPo
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("fetching story IDs: %v", err)
+		return nil, fmt.Errorf("fetch story IDs: %v", err)
 	}
 
 	if len(storyIDs) == 0 {

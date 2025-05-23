@@ -7,9 +7,9 @@ import (
 )
 
 type SourceFeed struct {
-	InstanceURL string `yaml:"instance-url"`
-	CustomURL   string `yaml:"custom-url"`
-	FeedName    string `yaml:"feed"`
+	InstanceURL string `json:"instance_url"`
+	CustomURL   string `json:"custom_url"`
+	FeedName    string `json:"feed"`
 	client      *LobstersClient
 }
 
@@ -32,13 +32,8 @@ func (s *SourceFeed) URL() string {
 }
 
 func (s *SourceFeed) Initialize() error {
-
-	if s.FeedName == "" {
-		s.FeedName = "hottest"
-	}
-
 	if s.FeedName != "hottest" && s.FeedName != "newest" {
-		return fmt.Errorf("sort-by must be either 'hottest' or 'newest'")
+		return fmt.Errorf("feed name must be one of: 'hottest', 'newest'")
 	}
 
 	s.client = NewLobstersClient(s.InstanceURL)

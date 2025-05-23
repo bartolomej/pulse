@@ -13,9 +13,9 @@ import (
 )
 
 type SourceRelease struct {
-	Repository       string `yaml:"repository"`
-	Token            string `yaml:"token"`
-	IncludePreleases bool   `yaml:"include-prereleases"`
+	Repository       string `json:"repository"`
+	Token            string `json:"token"`
+	IncludePreleases bool   `json:"include_prereleases"`
 	client           *github.Client
 }
 
