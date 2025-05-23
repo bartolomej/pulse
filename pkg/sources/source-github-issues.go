@@ -11,22 +11,27 @@ import (
 	"github.com/google/go-github/v72/github"
 )
 
-type githubIssuesSource struct {
-	sourceBase    `yaml:",inline"`
-	Issues        issueActivityList `yaml:"-"`
-	Repository    string            `yaml:"repository"`
-	Token         string            `yaml:"token"`
-	Limit         int               `yaml:"limit"`
-	ActivityTypes []string          `yaml:"activity-types"`
-	client        *github.Client
+type GithubIssuesSource struct {
+	Repository string `yaml:"repository"`
+	Token      string `yaml:"token"`
+	Limit      int    `yaml:"limit"`
+	client     *github.Client
 }
 
-func (s *githubIssuesSource) Feed() []Activity {
-	activities := make([]Activity, len(s.Issues))
-	for i, issue := range s.Issues {
-		activities[i] = issue
-	}
-	return activities
+func NewGithubIssuesSource() *GithubIssuesSource {
+	return &GithubIssuesSource{}
+}
+
+func (s *GithubIssuesSource) UID() string {
+	return fmt.Sprintf("issues/%s", s.Repository)
+}
+
+func (s *GithubIssuesSource) Name() string {
+	return fmt.Sprintf("Issue Activity (%s)", s.Repository)
+}
+
+func (s *GithubIssuesSource) URL() string {
+	return fmt.Sprintf("https://github.com/%s", s.Repository)
 }
 
 type issueActivity struct {
@@ -66,15 +71,9 @@ func (i issueActivityList) sortByNewest() issueActivityList {
 	return i
 }
 
-func (s *githubIssuesSource) Initialize() error {
-	s.withTitle("Issue Activity").withCacheDuration(30 * time.Minute)
-
+func (s *GithubIssuesSource) Initialize() error {
 	if s.Limit <= 0 {
 		s.Limit = 10
-	}
-
-	if len(s.ActivityTypes) == 0 {
-		s.ActivityTypes = []string{"opened", "closed", "commented"}
 	}
 
 	token := s.Token
@@ -91,21 +90,20 @@ func (s *githubIssuesSource) Initialize() error {
 	return nil
 }
 
-func (s *githubIssuesSource) Update(ctx context.Context) {
-	activities, err := fetchIssueActivities(ctx, s.client, s.Repository, s.ActivityTypes)
+func (s *GithubIssuesSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
+	activities, err := fetchIssueActivities(ctx, s.client, s.Repository)
 
-	if !s.canContinueUpdateAfterHandlingErr(err) {
+	if err != nil {
+		errs <- err
 		return
 	}
 
-	if len(activities) > s.Limit {
-		activities = activities[:s.Limit]
+	for _, activity := range activities {
+		feed <- activity
 	}
-
-	s.Issues = activities
 }
 
-func fetchIssueActivities(ctx context.Context, client *github.Client, repository string, activityTypes []string) (issueActivityList, error) {
+func fetchIssueActivities(ctx context.Context, client *github.Client, repository string) (issueActivityList, error) {
 	activities, err := fetchIssueActivityTask(ctx, client, repository)
 	if err != nil {
 		return nil, err

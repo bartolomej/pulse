@@ -10,26 +10,41 @@ import (
 	"time"
 )
 
-type changeDetectionSource struct {
-	sourceBase       `yaml:",inline"`
-	ChangeDetections changeDetectionWatchList `yaml:"-"`
-	WatchUUID        string                   `yaml:"watch"`
-	InstanceURL      string                   `yaml:"instance-url"`
-	Token            string                   `yaml:"token"`
-	Limit            int                      `yaml:"limit"`
+type ChangeDetectionSource struct {
+	WatchUUID   string `yaml:"watch"`
+	InstanceURL string `yaml:"instance-url"`
+	Token       string `yaml:"token"`
+	Limit       int    `yaml:"limit"`
 }
 
-func (s *changeDetectionSource) Feed() []Activity {
-	activities := make([]Activity, len(s.ChangeDetections))
-	for i, c := range s.ChangeDetections {
-		activities[i] = c
+func NewChangeDetectionSource() *ChangeDetectionSource {
+	return &ChangeDetectionSource{}
+}
+
+func (s *ChangeDetectionSource) UID() string {
+	return fmt.Sprintf("change-detection/%s", s.WatchUUID)
+}
+
+func (s *ChangeDetectionSource) Name() string {
+	return "Change Detection"
+}
+
+func (s *ChangeDetectionSource) URL() string {
+	return s.InstanceURL
+}
+
+func (s *ChangeDetectionSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
+	initial, err := fetchWatchFromChangeDetection(s.InstanceURL, s.WatchUUID, s.Token)
+
+	if err != nil {
+		errs <- err
+		return
 	}
-	return activities
+
+	feed <- initial
 }
 
-func (s *changeDetectionSource) Initialize() error {
-	s.withTitle("Change Detection").withCacheDuration(1 * time.Hour)
-
+func (s *ChangeDetectionSource) Initialize() error {
 	if s.Limit <= 0 {
 		s.Limit = 10
 	}
@@ -39,16 +54,6 @@ func (s *changeDetectionSource) Initialize() error {
 	}
 
 	return nil
-}
-
-func (s *changeDetectionSource) Update(ctx context.Context) {
-	watch, err := fetchWatchFromChangeDetection(s.InstanceURL, s.WatchUUID, string(s.Token))
-
-	if !s.canContinueUpdateAfterHandlingErr(err) {
-		return
-	}
-
-	s.ChangeDetections = changeDetectionWatchList{watch}
 }
 
 type changeDetectionWatch struct {

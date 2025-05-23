@@ -3,46 +3,41 @@ package sources
 import (
 	"context"
 	"fmt"
-	"time"
 )
 
-type lobstersFeedSource struct {
-	sourceBase  `yaml:",inline"`
-	Posts       []*lobstersPost `yaml:"-"`
-	InstanceURL string          `yaml:"instance-url"`
-	CustomURL   string          `yaml:"custom-url"`
-	Limit       int             `yaml:"limit"`
-	SortBy      string          `yaml:"sort-by"`
+type LobstersFeedSource struct {
+	InstanceURL string `yaml:"instance-url"`
+	CustomURL   string `yaml:"custom-url"`
+	FeedName    string `yaml:"feed"`
 	client      *LobstersClient
 }
 
-func (s *lobstersFeedSource) Feed() []Activity {
-	activities := make([]Activity, len(s.Posts))
-	for i, post := range s.Posts {
-		activities[i] = post
+func NewLobstersFeedSource() *LobstersFeedSource {
+	return &LobstersFeedSource{
+		InstanceURL: "https://lobste.rs",
 	}
-	return activities
 }
 
-func (s *lobstersFeedSource) Initialize() error {
-	s.withTitle("Lobsters Feed").withCacheDuration(time.Hour)
+func (s *LobstersFeedSource) UID() string {
+	return fmt.Sprintf("lobsters-feed/%s/%s", s.InstanceURL, s.FeedName)
+}
 
-	if s.InstanceURL == "" {
-		s.withTitleURL("https://lobste.rs")
-	} else {
-		s.withTitleURL(s.InstanceURL)
+func (s *LobstersFeedSource) Name() string {
+	return fmt.Sprintf("Lobsters (%s)", s.FeedName)
+}
+
+func (s *LobstersFeedSource) URL() string {
+	return fmt.Sprintf("https://lobste.rs/%s", s.FeedName)
+}
+
+func (s *LobstersFeedSource) Initialize() error {
+
+	if s.FeedName == "" {
+		s.FeedName = "hottest"
 	}
 
-	if s.SortBy == "" {
-		s.SortBy = "hot"
-	}
-
-	if s.SortBy != "hot" && s.SortBy != "new" {
-		return fmt.Errorf("sort-by must be either 'hot' or 'new'")
-	}
-
-	if s.Limit <= 0 {
-		s.Limit = 15
+	if s.FeedName != "hottest" && s.FeedName != "newest" {
+		return fmt.Errorf("sort-by must be either 'hottest' or 'newest'")
 	}
 
 	s.client = NewLobstersClient(s.InstanceURL)
@@ -50,32 +45,23 @@ func (s *lobstersFeedSource) Initialize() error {
 	return nil
 }
 
-func (s *lobstersFeedSource) Update(ctx context.Context) {
+func (s *LobstersFeedSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
 	var stories []*Story
 	var err error
 
 	if s.CustomURL != "" {
 		stories, err = s.client.GetStoriesFromCustomURL(ctx, s.CustomURL)
 	} else {
-		stories, err = s.client.GetStoriesBySort(ctx, s.SortBy)
+		stories, err = s.client.GetStoriesByFeed(ctx, s.FeedName)
 	}
 
-	if !s.canContinueUpdateAfterHandlingErr(err) {
+	if err != nil {
+		errs <- err
 		return
 	}
 
-	if len(stories) == 0 {
-		return
-	}
-
-	posts := make([]*lobstersPost, 0, len(stories))
 	for _, story := range stories {
-		posts = append(posts, &lobstersPost{raw: story})
+		feed <- &lobstersPost{raw: story}
 	}
 
-	if s.Limit < len(posts) {
-		posts = posts[:s.Limit]
-	}
-
-	s.Posts = posts
 }

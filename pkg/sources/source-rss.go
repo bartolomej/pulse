@@ -29,33 +29,38 @@ func (t *customTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.base.RoundTrip(req)
 }
 
-type rssSource struct {
-	sourceBase `yaml:",inline"`
-	URL        string            `yaml:"url"`
-	Headers    map[string]string `yaml:"headers"`
-	Items      rssFeedItemList   `yaml:"-"`
+type RSSSource struct {
+	FeedURL string            `yaml:"url"`
+	Headers map[string]string `yaml:"headers"`
 }
 
-func (s *rssSource) Feed() []Activity {
-	activities := make([]Activity, len(s.Items))
-	for i, item := range s.Items {
-		activities[i] = item
-	}
-	return activities
+func NewRSSSource() *RSSSource {
+	return &RSSSource{}
 }
 
-func (s *rssSource) Initialize() error {
-	if s.URL == "" {
+func (s *RSSSource) UID() string {
+	return fmt.Sprintf("rss/%s", s.FeedURL)
+}
+
+func (s *RSSSource) Name() string {
+	return fmt.Sprintf("RSS (%s)", s.FeedURL)
+}
+
+func (s *RSSSource) URL() string {
+	return s.FeedURL
+}
+
+func (s *RSSSource) Initialize() error {
+	if s.FeedURL == "" {
 		return fmt.Errorf("URL is required")
 	}
 
-	s.withTitle("RSS Feed").withCacheDuration(2 * time.Hour)
 	return nil
 }
 
-func (s *rssSource) Update(ctx context.Context) {
+func (s *RSSSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
 	parser := gofeed.NewParser()
-	parser.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+	parser.UserAgent = PulseUserAgentString
 
 	if s.Headers != nil {
 		parser.Client = &http.Client{
@@ -66,38 +71,25 @@ func (s *rssSource) Update(ctx context.Context) {
 		}
 	}
 
-	feed, err := parser.ParseURL(s.URL)
+	rssFeed, err := parser.ParseURL(s.FeedURL)
 	if err != nil {
-		s.withError(fmt.Errorf("failed to parse RSS feed: %w", err))
+		errs <- fmt.Errorf("failed to parse RSS feed: %w", err)
 		return
 	}
 
-	if feed == nil {
-		s.withError(fmt.Errorf("feed is nil"))
+	if rssFeed == nil {
+		errs <- fmt.Errorf("feed is nil")
 		return
 	}
 
-	if len(feed.Items) == 0 {
-		s.withError(fmt.Errorf("feed has no items"))
+	if len(rssFeed.Items) == 0 {
+		errs <- fmt.Errorf("feed has no items")
 		return
 	}
 
-	var items []*rssFeedItem
-	for _, item := range feed.Items {
-		rssItem := &rssFeedItem{
-			raw:      item,
-			feedLink: feed.Link,
-		}
-		items = append(items, rssItem)
+	for _, item := range rssFeed.Items {
+		feed <- &rssFeedItem{raw: item, feedLink: s.FeedURL}
 	}
-
-	s.Items = rssFeedItemList(items).sortByNewest()
-}
-
-type cachedRSSFeed struct {
-	etag         string
-	lastModified string
-	items        []*rssFeedItem
 }
 
 type rssFeedItem struct {

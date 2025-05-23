@@ -39,18 +39,8 @@ type Story struct {
 	ParsedTime   time.Time `json:"-"`
 }
 
-func (c *LobstersClient) GetStoriesBySort(ctx context.Context, sortBy string) ([]*Story, error) {
-	if sortBy == "" {
-		sortBy = "hot"
-	}
-
-	if sortBy == "hot" {
-		sortBy = "hottest"
-	} else if sortBy == "new" {
-		sortBy = "newest"
-	}
-
-	url := fmt.Sprintf("%s/%s.json", c.baseURL, sortBy)
+func (c *LobstersClient) GetStoriesByFeed(ctx context.Context, feed string) ([]*Story, error) {
+	url := fmt.Sprintf("%s/%s.json", c.baseURL, feed)
 	return c.fetchStories(ctx, url)
 }
 

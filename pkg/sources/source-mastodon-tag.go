@@ -3,59 +3,60 @@ package sources
 import (
 	"context"
 	"fmt"
-	"time"
-
 	"github.com/mattn/go-mastodon"
 )
 
-type mastodonTagSource struct {
-	sourceBase
-	Posts       []*mastodonPost
+type MastodonTagSource struct {
 	InstanceURL string
 	Hashtag     string
-	Limit       int
 }
 
-func (s *mastodonTagSource) Feed() []Activity {
-	activities := make([]Activity, len(s.Posts))
-	for i, post := range s.Posts {
-		activities[i] = post
+func NewMastodonTagSource() *MastodonTagSource {
+	return &MastodonTagSource{
+		InstanceURL: "https://mastodon.social",
 	}
-	return activities
 }
 
-func (s *mastodonTagSource) Initialize() error {
+func (s *MastodonTagSource) UID() string {
+	return fmt.Sprintf("mastodon/%s/%s", s.InstanceURL, s.Hashtag)
+}
+
+func (s *MastodonTagSource) Name() string {
+	return fmt.Sprintf("Mastodon (%s)", s.Hashtag)
+}
+
+func (s *MastodonTagSource) URL() string {
+	return fmt.Sprintf("%s/tags/%s", s.InstanceURL, s.Hashtag)
+}
+
+func (s *MastodonTagSource) Initialize() error {
 	if s.InstanceURL == "" {
 		return fmt.Errorf("instance URL is required")
 	}
 	if s.Hashtag == "" {
 		return fmt.Errorf("hashtag is required")
 	}
-	if s.Limit <= 0 {
-		s.Limit = 20
-	}
-
-	s.withTitle("Mastodon Hashtag").
-		withTitleURL(s.InstanceURL).
-		withCacheDuration(30 * time.Minute)
 
 	return nil
 }
 
-func (s *mastodonTagSource) Update(ctx context.Context) {
+func (s *MastodonTagSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
 	client := mastodon.NewClient(&mastodon.Config{
 		Server:       s.InstanceURL,
 		ClientID:     "pulse-feed-aggregation",
 		ClientSecret: "pulse-feed-aggregation",
 	})
 
-	posts, err := fetchHashtagPosts(client, s.Hashtag, s.Limit)
+	limit := 15
+	posts, err := fetchHashtagPosts(client, s.Hashtag, limit)
 	if err != nil {
-		s.withError(fmt.Errorf("failed to fetch posts: %w", err))
+		errs <- fmt.Errorf("failed to fetch posts: %w", err)
 		return
 	}
 
-	s.Posts = posts
+	for _, post := range posts {
+		feed <- post
+	}
 }
 
 func fetchHashtagPosts(client *mastodon.Client, hashtag string, limit int) ([]*mastodonPost, error) {

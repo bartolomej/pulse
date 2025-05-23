@@ -3,50 +3,34 @@ package sources
 import (
 	"context"
 	"fmt"
-	"time"
 )
 
-type lobstersTagSource struct {
-	sourceBase  `yaml:",inline"`
-	Posts       []*lobstersPost `yaml:"-"`
-	InstanceURL string          `yaml:"instance-url"`
-	CustomURL   string          `yaml:"custom-url"`
-	Limit       int             `yaml:"limit"`
-	Tag         string          `yaml:"tag"`
+type LobstersTagSource struct {
+	InstanceURL string `yaml:"instance-url"`
+	CustomURL   string `yaml:"custom-url"`
+	Tag         string `yaml:"tag"`
 	client      *LobstersClient
 }
 
-func (s *lobstersTagSource) Feed() []Activity {
-	activities := make([]Activity, len(s.Posts))
-	for i, post := range s.Posts {
-		activities[i] = post
+func NewLobstersTagSource() *LobstersTagSource {
+	return &LobstersTagSource{
+		InstanceURL: "https://lobste.rs",
 	}
-	return activities
 }
 
-func (s *lobstersTagSource) Initialize() error {
-	s.withTitle("Lobsters Tag").withCacheDuration(time.Hour)
-
-	if s.InstanceURL == "" {
-		s.withTitleURL("https://lobste.rs")
-	} else {
-		s.withTitleURL(s.InstanceURL)
-	}
-
-	if s.Tag == "" {
-		return fmt.Errorf("tag is required")
-	}
-
-	if s.Limit <= 0 {
-		s.Limit = 15
-	}
-
-	s.client = NewLobstersClient(s.InstanceURL)
-
-	return nil
+func (s *LobstersTagSource) UID() string {
+	return fmt.Sprintf("lobsters-tag/%s/%s", s.InstanceURL, s.Tag)
 }
 
-func (s *lobstersTagSource) Update(ctx context.Context) {
+func (s *LobstersTagSource) Name() string {
+	return fmt.Sprintf("Lobsters (#%s)", s.Tag)
+}
+
+func (s *LobstersTagSource) URL() string {
+	return fmt.Sprintf("https://lobste.rs/t/%s", s.Tag)
+}
+
+func (s *LobstersTagSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
 	var stories []*Story
 	var err error
 
@@ -56,22 +40,22 @@ func (s *lobstersTagSource) Update(ctx context.Context) {
 		stories, err = s.client.GetStoriesByTag(ctx, s.Tag)
 	}
 
-	if !s.canContinueUpdateAfterHandlingErr(err) {
+	if err != nil {
+		errs <- err
 		return
 	}
 
-	if len(stories) == 0 {
-		return
-	}
-
-	posts := make([]*lobstersPost, 0, len(stories))
 	for _, story := range stories {
-		posts = append(posts, &lobstersPost{raw: story})
+		feed <- &lobstersPost{raw: story}
+	}
+}
+
+func (s *LobstersTagSource) Initialize() error {
+	if s.Tag == "" {
+		return fmt.Errorf("tag is required")
 	}
 
-	if s.Limit < len(posts) {
-		posts = posts[:s.Limit]
-	}
+	s.client = NewLobstersClient(s.InstanceURL)
 
-	s.Posts = posts
+	return nil
 }

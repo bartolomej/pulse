@@ -13,14 +13,9 @@ import (
 	"github.com/vartanbeno/go-reddit/v2/reddit"
 )
 
-type redditSource struct {
-	sourceBase         `yaml:",inline"`
-	Posts              []*redditPost     `yaml:"-"`
+type RedditSource struct {
 	Subreddit          string            `yaml:"subreddit"`
 	Proxy              proxyOptionsField `yaml:"proxy"`
-	Style              string            `yaml:"style"`
-	ShowThumbnails     bool              `yaml:"show-thumbnails"`
-	ShowFlairs         bool              `yaml:"show-flairs"`
 	SortBy             string            `yaml:"sort-by"`
 	TopPeriod          string            `yaml:"top-period"`
 	Search             string            `yaml:"search"`
@@ -32,6 +27,22 @@ type redditSource struct {
 		ID     string `yaml:"ID"`
 		Secret string `yaml:"secret"`
 	} `yaml:"app-auth"`
+}
+
+func NewRedditSource() *RedditSource {
+	return &RedditSource{}
+}
+
+func (s *RedditSource) UID() string {
+	return fmt.Sprintf("reddit/%s/%s/%s/%s", s.Subreddit, s.SortBy, s.TopPeriod, s.Search)
+}
+
+func (s *RedditSource) Name() string {
+	return fmt.Sprintf("Reddit (%s, %s, %s)", s.Subreddit, s.SortBy, s.TopPeriod)
+}
+
+func (s *RedditSource) URL() string {
+	return fmt.Sprintf("https://reddit.com/r/%s/%s", s.Subreddit, s.SortBy)
 }
 
 type redditPost struct {
@@ -75,21 +86,9 @@ func (p *redditPost) CreatedAt() time.Time {
 	return p.raw.Created.Time
 }
 
-func (s *redditSource) Feed() []Activity {
-	activities := make([]Activity, len(s.Posts))
-	for i, post := range s.Posts {
-		activities[i] = post
-	}
-	return activities
-}
-
-func (s *redditSource) Initialize() error {
+func (s *RedditSource) Initialize() error {
 	if s.Subreddit == "" {
 		return errors.New("subreddit is required")
-	}
-
-	if s.Limit <= 0 {
-		s.Limit = 15
 	}
 
 	sort := s.SortBy
@@ -126,28 +125,23 @@ func (s *redditSource) Initialize() error {
 
 	s.client = client
 
-	s.
-		withTitle("r/" + s.Subreddit).
-		withTitleURL("https://www.reddit.com/r/" + s.Subreddit + "/").
-		withCacheDuration(30 * time.Minute)
-
 	return nil
 }
 
-func (s *redditSource) Update(ctx context.Context) {
+func (s *RedditSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
 	posts, err := s.fetchSubredditPosts(ctx)
-	if !s.canContinueUpdateAfterHandlingErr(err) {
+
+	if err != nil {
+		errs <- fmt.Errorf("fetching posts: %v", err)
 		return
 	}
 
-	if len(posts) > s.Limit {
-		posts = posts[:s.Limit]
+	for _, post := range posts {
+		feed <- post
 	}
-
-	s.Posts = posts
 }
 
-func (s *redditSource) fetchSubredditPosts(ctx context.Context) ([]*redditPost, error) {
+func (s *RedditSource) fetchSubredditPosts(ctx context.Context) ([]*redditPost, error) {
 	var posts []*reddit.Post
 	var err error
 

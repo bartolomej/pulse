@@ -10,12 +10,25 @@ import (
 	"github.com/go-shiori/go-readability"
 )
 
-type hackerNewsSource struct {
-	sourceBase `yaml:",inline"`
-	Posts      []*hackerNewsPost `yaml:"-"`
-	Limit      int               `yaml:"limit"`
-	SortBy     string            `yaml:"sort-by"`
-	client     *gohn.Client
+type HackerNewsSource struct {
+	SortBy string `yaml:"sort-by"`
+	client *gohn.Client
+}
+
+func NewHackerNewsSource() *HackerNewsSource {
+	return &HackerNewsSource{}
+}
+
+func (s *HackerNewsSource) UID() string {
+	return fmt.Sprintf("hackernews/%s", s.SortBy)
+}
+
+func (s *HackerNewsSource) Name() string {
+	return fmt.Sprintf("HackerNews (%s)", s.SortBy)
+}
+
+func (s *HackerNewsSource) URL() string {
+	return fmt.Sprintf("https://news.ycombinator.com/%s", s.SortBy)
 }
 
 type hackerNewsPost struct {
@@ -58,24 +71,7 @@ func (p *hackerNewsPost) CreatedAt() time.Time {
 	return time.Unix(int64(*p.raw.Time), 0)
 }
 
-func (s *hackerNewsSource) Feed() []Activity {
-	activities := make([]Activity, len(s.Posts))
-	for i, post := range s.Posts {
-		activities[i] = post
-	}
-	return activities
-}
-
-func (s *hackerNewsSource) Initialize() error {
-	s.
-		withTitle("Hacker News").
-		withTitleURL("https://news.ycombinator.com/").
-		withCacheDuration(30 * time.Minute)
-
-	if s.Limit <= 0 {
-		s.Limit = 15
-	}
-
+func (s *HackerNewsSource) Initialize() error {
 	if s.SortBy != "top" && s.SortBy != "new" && s.SortBy != "best" {
 		s.SortBy = "top"
 	}
@@ -89,20 +85,21 @@ func (s *hackerNewsSource) Initialize() error {
 	return nil
 }
 
-func (s *hackerNewsSource) Update(ctx context.Context) {
+func (s *HackerNewsSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
 	posts, err := s.fetchHackerNewsPosts(ctx)
-	if !s.canContinueUpdateAfterHandlingErr(err) {
+
+	if err != nil {
+		errs <- fmt.Errorf("fetching posts: %v", err)
 		return
 	}
 
-	if s.Limit < len(posts) {
-		posts = posts[:s.Limit]
+	for _, post := range posts {
+		feed <- post
 	}
 
-	s.Posts = posts
 }
 
-func (s *hackerNewsSource) fetchHackerNewsPosts(ctx context.Context) ([]*hackerNewsPost, error) {
+func (s *HackerNewsSource) fetchHackerNewsPosts(ctx context.Context) ([]*hackerNewsPost, error) {
 	var storyIDs []*int
 	var err error
 

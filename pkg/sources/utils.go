@@ -46,7 +46,7 @@ type requestDoer interface {
 
 var BuildVersion = "dev"
 
-var pulseUserAgentString = "Pulse/" + BuildVersion + " +https://github.com/bartolomej/pulse"
+var PulseUserAgentString = "Pulse/" + BuildVersion + " +https://github.com/bartolomej/pulse"
 var userAgentPersistentVersion atomic.Int32
 
 func getBrowserUserAgentHeader() string {

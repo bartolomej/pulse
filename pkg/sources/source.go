@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 )
 
@@ -13,32 +12,29 @@ func NewSource(widgetType string) (Source, error) {
 		return nil, errors.New("widget 'type' property is empty or not specified")
 	}
 
-	base := sourceBase{
-		sourceType: widgetType,
-	}
 	var s Source
 
 	switch widgetType {
 	case "mastodon-account":
-		s = &mastodonAccountSource{sourceBase: base}
+		s = NewMastodonAccountSource()
 	case "mastodon-tag":
-		s = &mastodonTagSource{sourceBase: base}
+		s = NewMastodonTagSource()
 	case "hacker-news":
-		s = &hackerNewsSource{sourceBase: base}
+		s = NewHackerNewsSource()
 	case "reddit":
-		s = &redditSource{sourceBase: base}
+		s = NewRedditSource()
 	case "lobsters-tag":
-		s = &lobstersTagSource{sourceBase: base}
+		s = NewLobstersTagSource()
 	case "lobsters-feed":
-		s = &lobstersFeedSource{sourceBase: base}
+		s = NewLobstersFeedSource()
 	case "rss":
-		s = &rssSource{sourceBase: base}
+		s = NewRSSSource()
 	case "releases":
-		s = &githubReleasesSource{sourceBase: base}
+		s = NewGithubReleasesSource()
 	case "issues":
-		s = &githubIssuesSource{sourceBase: base}
+		s = NewGithubIssuesSource()
 	case "change-detection":
-		s = &changeDetectionSource{sourceBase: base}
+		s = NewChangeDetectionSource()
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", widgetType)
 	}
@@ -46,15 +42,14 @@ func NewSource(widgetType string) (Source, error) {
 	return s, nil
 }
 
-// Source TODO(pulse): Feed() returns cached activities, but refactor it to fetch fresh activities given filters and cache them in a global activity registry.
 type Source interface {
-	Type() string
-	// Feed return cached feed entries in a standard Activity format.
-	Feed() []Activity
+	UID() string
+	// Name is a human-readable UID.
+	Name() string
+	// URL is a web resource representation of UID.
+	URL() string
 	Initialize() error
-	// Update TODO(pulse): remove the need for update function on the resource (updates should be managed in global source registry)
-	Update(ctx context.Context)
-	RequiresUpdate(now *time.Time) bool
+	Stream(ctx context.Context, feed chan<- Activity, errs chan<- error)
 }
 
 // Activity TODO(pulse): Compute LLM summary
@@ -65,171 +60,4 @@ type Activity interface {
 	URL() string
 	ImageURL() string
 	CreatedAt() time.Time
-}
-
-type cacheType int
-
-const (
-	cacheTypeInfinite cacheType = iota
-	cacheTypeDuration
-	cacheTypeOnTheHour
-)
-
-type sourceBase struct {
-	ID    uint64 `yaml:"-"`
-	Title string `yaml:"title"`
-	// TitleURL TODO(pulse): remove or rename this field
-	TitleURL            string           `yaml:"title-url"`
-	Error               error            `yaml:"-"`
-	Notice              error            `yaml:"-"`
-	Providers           *sourceProviders `yaml:"-"`
-	CustomCacheDuration durationField    `yaml:"cache"`
-	cacheDuration       time.Duration    `yaml:"-"`
-	cacheType           cacheType        `yaml:"-"`
-	nextUpdate          time.Time        `yaml:"-"`
-	updateRetriedTimes  int              `yaml:"-"`
-	sourceType          string           `yaml:"-"`
-}
-
-// TODO(pulse): Do we need this?
-type sourceProviders struct {
-	assetResolver func(string) string
-}
-
-func (s *sourceBase) Type() string {
-	return s.sourceType
-}
-
-func (w *sourceBase) withTitle(title string) *sourceBase {
-	if w.Title == "" {
-		w.Title = title
-	}
-
-	return w
-}
-
-func (w *sourceBase) withTitleURL(titleURL string) *sourceBase {
-	if w.TitleURL == "" {
-		w.TitleURL = titleURL
-	}
-
-	return w
-}
-
-func (w *sourceBase) RequiresUpdate(now *time.Time) bool {
-	if w.cacheType == cacheTypeInfinite {
-		return false
-	}
-
-	if w.nextUpdate.IsZero() {
-		return true
-	}
-
-	return now.After(w.nextUpdate)
-}
-
-func (w *sourceBase) withCacheDuration(duration time.Duration) *sourceBase {
-	w.cacheType = cacheTypeDuration
-
-	if duration == -1 || w.CustomCacheDuration == 0 {
-		w.cacheDuration = duration
-	} else {
-		w.cacheDuration = time.Duration(w.CustomCacheDuration)
-	}
-
-	return w
-}
-
-func (w *sourceBase) withCacheOnTheHour() *sourceBase {
-	w.cacheType = cacheTypeOnTheHour
-
-	return w
-}
-
-func (w *sourceBase) getNextUpdateTime() time.Time {
-	now := time.Now()
-
-	if w.cacheType == cacheTypeDuration {
-		return now.Add(w.cacheDuration)
-	}
-
-	if w.cacheType == cacheTypeOnTheHour {
-		return now.Add(time.Duration(
-			((60-now.Minute())*60)-now.Second(),
-		) * time.Second)
-	}
-
-	return time.Time{}
-}
-
-func (w *sourceBase) scheduleNextUpdate() *sourceBase {
-	w.nextUpdate = w.getNextUpdateTime()
-	w.updateRetriedTimes = 0
-
-	return w
-}
-
-func (w *sourceBase) scheduleEarlyUpdate() *sourceBase {
-	w.updateRetriedTimes++
-
-	if w.updateRetriedTimes > 5 {
-		w.updateRetriedTimes = 5
-	}
-
-	nextEarlyUpdate := time.Now().Add(time.Duration(math.Pow(float64(w.updateRetriedTimes), 2)) * time.Minute)
-	nextUsualUpdate := w.getNextUpdateTime()
-
-	if nextEarlyUpdate.After(nextUsualUpdate) {
-		w.nextUpdate = nextUsualUpdate
-	} else {
-		w.nextUpdate = nextEarlyUpdate
-	}
-
-	return w
-}
-
-func (w *sourceBase) withNotice(err error) *sourceBase {
-	w.Notice = err
-
-	return w
-}
-
-func (w *sourceBase) withError(err error) *sourceBase {
-	w.Error = err
-
-	return w
-}
-
-func (s *sourceBase) canContinueUpdateAfterHandlingErr(err error) bool {
-	// TODO: needs covering more edge cases.
-	// if there's partial content and we update early there's a chance
-	// the early update returns even less content than the initial update.
-	// need some kind of mechanism that tells us whether we should update early
-	// or not depending on the number of things that failed during the initial
-	// and subsequent update and how they failed - ie whether it was server
-	// error (like gateway timeout, do retry early) or client error (like
-	// hitting a rate limit, don't retry early). will require reworking a
-	// good amount of code in the feed package and probably having a custom
-	// error type that holds more information because screw wrapping errors.
-	// alternatively have a resource cache and only refetch the failed resources,
-	// then rebuild the widget.
-
-	if err != nil {
-		s.scheduleEarlyUpdate()
-
-		if !errors.Is(err, errPartialContent) {
-			s.withError(err)
-			s.withNotice(nil)
-			return false
-		}
-
-		s.withError(nil)
-		s.withNotice(err)
-		return true
-	}
-
-	s.withNotice(nil)
-	s.withError(nil)
-	s.scheduleNextUpdate()
-	return true
 }

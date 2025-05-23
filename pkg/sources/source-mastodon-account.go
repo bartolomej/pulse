@@ -3,46 +3,44 @@ package sources
 import (
 	"context"
 	"fmt"
-	"time"
-
 	"github.com/mattn/go-mastodon"
 )
 
-type mastodonAccountSource struct {
-	sourceBase
-	Posts       []*mastodonPost
+type MastodonAccountSource struct {
 	InstanceURL string
 	Account     string
-	Limit       int
 }
 
-func (s *mastodonAccountSource) Feed() []Activity {
-	activities := make([]Activity, len(s.Posts))
-	for i, post := range s.Posts {
-		activities[i] = post
+func NewMastodonAccountSource() *MastodonAccountSource {
+	return &MastodonAccountSource{
+		InstanceURL: "https://mastodon.social",
 	}
-	return activities
 }
 
-func (s *mastodonAccountSource) Initialize() error {
+func (s *MastodonAccountSource) UID() string {
+	return fmt.Sprintf("mastodon/%s/%s", s.InstanceURL, s.Account)
+}
+
+func (s *MastodonAccountSource) Name() string {
+	return fmt.Sprintf("Mastodon (%s)", s.Account)
+}
+
+func (s *MastodonAccountSource) URL() string {
+	return fmt.Sprintf("%s/tags/%s", s.InstanceURL, s.Account)
+}
+
+func (s *MastodonAccountSource) Initialize() error {
 	if s.InstanceURL == "" {
 		return fmt.Errorf("instance URL is required")
 	}
 	if s.Account == "" {
 		return fmt.Errorf("account is required")
 	}
-	if s.Limit <= 0 {
-		s.Limit = 20
-	}
-
-	s.withTitle("Mastodon Account").
-		withTitleURL(s.InstanceURL).
-		withCacheDuration(30 * time.Minute)
 
 	return nil
 }
 
-func (s *mastodonAccountSource) Update(ctx context.Context) {
+func (s *MastodonAccountSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
 	client := mastodon.NewClient(&mastodon.Config{
 		Server:       s.InstanceURL,
 		ClientID:     "pulse-feed-aggregation",
@@ -51,17 +49,20 @@ func (s *mastodonAccountSource) Update(ctx context.Context) {
 
 	accountID, err := getAccountID(client, s.Account)
 	if err != nil {
-		s.withError(fmt.Errorf("failed to get account ID: %w", err))
+		errs <- fmt.Errorf("failed to get account ID: %w", err)
 		return
 	}
 
-	posts, err := fetchAccountPosts(client, accountID, s.Limit)
+	limit := 15
+	posts, err := fetchAccountPosts(client, accountID, limit)
 	if err != nil {
-		s.withError(fmt.Errorf("failed to fetch posts: %w", err))
+		errs <- fmt.Errorf("failed to fetch posts: %w", err)
 		return
 	}
 
-	s.Posts = posts
+	for _, post := range posts {
+		feed <- post
+	}
 }
 
 func getAccountID(client *mastodon.Client, account string) (mastodon.ID, error) {
