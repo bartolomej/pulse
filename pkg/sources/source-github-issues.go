@@ -5,13 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/go-github/v72/github"
 	"gopkg.in/yaml.v3"
 )
 
@@ -22,6 +21,7 @@ type githubIssuesSource struct {
 	Token         string            `yaml:"token"`
 	Limit         int               `yaml:"limit"`
 	ActivityTypes []string          `yaml:"activity-types"`
+	client        *github.Client
 }
 
 func (s *githubIssuesSource) Feed() []Activity {
@@ -33,50 +33,38 @@ func (s *githubIssuesSource) Feed() []Activity {
 }
 
 type issueActivity struct {
-	ID            string
-	Description   string
-	Source        string
-	SourceIconURL string
-	Repository    string
-	IssueNumber   int
-	title         string
-	State         string
-	ActivityType  string
-	IssueType     string
-	HTMLURL       string
-	TimeUpdated   time.Time
-	MatchScore    int
+	raw *github.Issue
 }
 
 func (i issueActivity) UID() string {
-	return i.ID
+	return fmt.Sprintf("issue-%d", i.raw.GetNumber())
 }
 
 func (i issueActivity) Title() string {
-	return i.title
+	return i.raw.GetTitle()
 }
 
 func (i issueActivity) Body() string {
-	return i.Description
+	return i.raw.GetBody()
 }
 
 func (i issueActivity) URL() string {
-	return i.HTMLURL
+	return i.raw.GetHTMLURL()
 }
 
 func (i issueActivity) ImageURL() string {
-	return i.SourceIconURL
+	return ""
 }
 
 func (i issueActivity) CreatedAt() time.Time {
-	return i.TimeUpdated
+	return i.raw.GetUpdatedAt().Time
 }
 
 type issueActivityList []issueActivity
 
 func (i issueActivityList) sortByNewest() issueActivityList {
 	sort.Slice(i, func(a, b int) bool {
-		return i[a].TimeUpdated.After(i[b].TimeUpdated)
+		return i[a].CreatedAt().After(i[b].CreatedAt())
 	})
 	return i
 }
@@ -118,18 +106,22 @@ func (s *githubIssuesSource) Initialize() error {
 		s.ActivityTypes = []string{"opened", "closed", "commented"}
 	}
 
-	for i := range s.Repositories {
-		r := s.Repositories[i]
-		if s.Token != "" {
-			r.token = &s.Token
-		}
+	token := s.Token
+	if token == "" {
+		token = os.Getenv("GITHUB_TOKEN")
+	}
+
+	if token != "" {
+		s.client = github.NewClient(nil).WithAuthToken(token)
+	} else {
+		s.client = github.NewClient(nil)
 	}
 
 	return nil
 }
 
 func (s *githubIssuesSource) Update(ctx context.Context) {
-	activities, err := fetchIssueActivities(s.Repositories, s.ActivityTypes)
+	activities, err := fetchIssueActivities(ctx, s.client, s.Repositories, s.ActivityTypes)
 
 	if !s.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -139,33 +131,13 @@ func (s *githubIssuesSource) Update(ctx context.Context) {
 		activities = activities[:s.Limit]
 	}
 
-	for i := range activities {
-		activities[i].SourceIconURL = s.Providers.assetResolver("icons/github.svg")
-	}
-
 	s.Issues = activities
 }
 
-type githubIssueResponse struct {
-	Number      int       `json:"number"`
-	Title       string    `json:"title"`
-	State       string    `json:"state"`
-	HTMLURL     string    `json:"html_url"`
-	UpdatedAt   string    `json:"updated_at"`
-	Body        string    `json:"body"`
-	PullRequest *struct{} `json:"pull_request,omitempty"`
-}
-
-type githubIssueCommentResponse struct {
-	ID        int    `json:"ID"`
-	Body      string `json:"body"`
-	IssueURL  string `json:"issue_url"`
-	HTMLURL   string `json:"html_url"`
-	UpdatedAt string `json:"updated_at"`
-}
-
-func fetchIssueActivities(requests []*issueRequest, activityTypes []string) (issueActivityList, error) {
-	job := newJob(fetchIssueActivityTask, requests).withWorkers(20)
+func fetchIssueActivities(ctx context.Context, client *github.Client, requests []*issueRequest, activityTypes []string) (issueActivityList, error) {
+	job := newJob(func(request *issueRequest) ([]issueActivity, error) {
+		return fetchIssueActivityTask(ctx, client, request)
+	}, requests).withWorkers(20)
 	results, errs, err := workerPoolDo(job)
 	if err != nil {
 		return nil, err
@@ -197,121 +169,28 @@ func fetchIssueActivities(requests []*issueRequest, activityTypes []string) (iss
 	return activities, nil
 }
 
-func fetchIssueActivityTask(request *issueRequest) ([]issueActivity, error) {
+func fetchIssueActivityTask(ctx context.Context, client *github.Client, request *issueRequest) ([]issueActivity, error) {
 	activities := make([]issueActivity, 0)
 
-	issues, err := fetchLatestIssues(request)
-	if err != nil {
-		return nil, err
+	parts := strings.Split(request.Repository, "/")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid repository format: %s", request.Repository)
 	}
+	owner, repo := parts[0], parts[1]
 
-	comments, err := fetchLatestComments(request)
+	issues, _, err := client.Issues.ListByRepo(ctx, owner, repo, &github.IssueListByRepoOptions{
+		State:       "all",
+		Sort:        "updated",
+		Direction:   "desc",
+		ListOptions: github.ListOptions{PerPage: 10},
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	for _, issue := range issues {
-		issueType := "issue"
-		if issue.PullRequest != nil {
-			issueType = "pull request"
-		}
-		activities = append(activities, issueActivity{
-			ID:           fmt.Sprintf("issue-%d", issue.Number),
-			Description:  issue.Body,
-			Source:       "github",
-			Repository:   request.Repository,
-			IssueNumber:  issue.Number,
-			title:        issue.Title,
-			State:        issue.State,
-			ActivityType: issue.State,
-			IssueType:    issueType,
-			HTMLURL:      issue.HTMLURL,
-			TimeUpdated:  parseRFC3339Time(issue.UpdatedAt),
-		})
-	}
-
-	for _, comment := range comments {
-		issueNumber := 0
-		if comment.IssueURL != "" {
-			parts := strings.Split(comment.IssueURL, "/")
-			if len(parts) > 0 {
-				if n, err := strconv.Atoi(parts[len(parts)-1]); err == nil {
-					issueNumber = n
-				}
-			}
-		}
-		title := comment.Body
-		titleLimit := 40
-		if len(title) > titleLimit {
-			title = title[:titleLimit] + "..."
-		}
-		activities = append(activities, issueActivity{
-			ID:           fmt.Sprintf("comment-%d", comment.ID),
-			Description:  comment.Body,
-			IssueNumber:  issueNumber,
-			Source:       "github",
-			Repository:   request.Repository,
-			ActivityType: "commented",
-			title:        title,
-			IssueType:    "issue",
-			HTMLURL:      comment.HTMLURL,
-			TimeUpdated:  parseRFC3339Time(comment.UpdatedAt),
-		})
+		activities = append(activities, issueActivity{raw: issue})
 	}
 
 	return activities, nil
-}
-
-func fetchLatestIssues(request *issueRequest) ([]githubIssueResponse, error) {
-	httpRequest, err := http.NewRequest(
-		"GET",
-		fmt.Sprintf("https://api.github.com/repos/%s/issues?state=all&sort=updated&direction=desc&per_page=10", request.Repository),
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO(pulse): Change secrets config approach
-	if request.token != nil {
-		httpRequest.Header.Add("Authorization", "Bearer "+(*request.token))
-	}
-	envToken := os.Getenv("GITHUB_TOKEN")
-	if envToken != "" {
-		httpRequest.Header.Add("Authorization", "Bearer "+envToken)
-	}
-
-	response, err := decodeJsonFromRequest[[]githubIssueResponse](defaultHTTPClient, httpRequest)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
-}
-
-func fetchLatestComments(request *issueRequest) ([]githubIssueCommentResponse, error) {
-	httpRequest, err := http.NewRequest(
-		"GET",
-		fmt.Sprintf("https://api.github.com/repos/%s/issues/comments?sort=updated&direction=desc&per_page=10", request.Repository),
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO(pulse): Change secrets config approach
-	if request.token != nil {
-		httpRequest.Header.Add("Authorization", "Bearer "+(*request.token))
-	}
-	envToken := os.Getenv("GITHUB_TOKEN")
-	if envToken != "" {
-		httpRequest.Header.Add("Authorization", "Bearer "+envToken)
-	}
-
-	response, err := decodeJsonFromRequest[[]githubIssueCommentResponse](defaultHTTPClient, httpRequest)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
 }

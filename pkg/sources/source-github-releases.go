@@ -9,10 +9,10 @@ import (
 	"net/url"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/go-github/v72/github"
 	"gopkg.in/yaml.v3"
 )
 
@@ -24,6 +24,7 @@ type githubReleasesSource struct {
 	GitLabToken    string            `yaml:"gitlab-token"`
 	Limit          int               `yaml:"limit"`
 	ShowSourceIcon bool              `yaml:"show-source-icon"`
+	client         *github.Client
 }
 
 func (s *githubReleasesSource) Feed() []Activity {
@@ -41,6 +42,17 @@ func (s *githubReleasesSource) Initialize() error {
 		s.Limit = 10
 	}
 
+	token := s.Token
+	if token == "" {
+		token = os.Getenv("GITHUB_TOKEN")
+	}
+
+	if token != "" {
+		s.client = github.NewClient(nil).WithAuthToken(token)
+	} else {
+		s.client = github.NewClient(nil)
+	}
+
 	for i := range s.Repositories {
 		r := s.Repositories[i]
 
@@ -55,7 +67,7 @@ func (s *githubReleasesSource) Initialize() error {
 }
 
 func (s *githubReleasesSource) Update(ctx context.Context) {
-	releases, err := fetchLatestReleases(s.Repositories)
+	releases, err := fetchLatestReleases(ctx, s.client, s.Repositories)
 
 	if !s.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -63,10 +75,6 @@ func (s *githubReleasesSource) Update(ctx context.Context) {
 
 	if len(releases) > s.Limit {
 		releases = releases[:s.Limit]
-	}
-
-	for i := range releases {
-		releases[i].SourceIconURL = s.Providers.assetResolver("icons/" + string(releases[i].Source) + ".svg")
 	}
 
 	s.Releases = releases
@@ -82,48 +90,38 @@ const (
 )
 
 type appRelease struct {
-	ID            string
-	Description   string
-	Source        releaseSource
-	SourceIconURL string
-	Name          string
-	Version       string
-	NotesUrl      string
-	TimeReleased  time.Time
-	Downvotes     int
-	MatchSummary  string
-	MatchScore    int
+	raw *github.RepositoryRelease
 }
 
 func (a appRelease) UID() string {
-	return a.ID
+	return fmt.Sprintf("%d", a.raw.GetID())
 }
 
 func (a appRelease) Title() string {
-	return a.Name
+	return a.raw.GetName()
 }
 
 func (a appRelease) Body() string {
-	return a.Description
+	return a.raw.GetBody()
 }
 
 func (a appRelease) URL() string {
-	return a.NotesUrl
+	return a.raw.GetHTMLURL()
 }
 
 func (a appRelease) ImageURL() string {
-	return a.SourceIconURL
+	return ""
 }
 
 func (a appRelease) CreatedAt() time.Time {
-	return a.TimeReleased
+	return a.raw.GetPublishedAt().Time
 }
 
 type appReleaseList []appRelease
 
 func (r appReleaseList) sortByNewest() appReleaseList {
 	sort.Slice(r, func(i, j int) bool {
-		return r[i].TimeReleased.After(r[j].TimeReleased)
+		return r[i].CreatedAt().After(r[j].CreatedAt())
 	})
 
 	return r
@@ -179,8 +177,10 @@ func (r *releaseRequest) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-func fetchLatestReleases(requests []*releaseRequest) (appReleaseList, error) {
-	job := newJob(fetchLatestReleaseTask, requests).withWorkers(20)
+func fetchLatestReleases(ctx context.Context, client *github.Client, requests []*releaseRequest) (appReleaseList, error) {
+	job := newJob(func(request *releaseRequest) (*appRelease, error) {
+		return fetchLatestReleaseTask(ctx, client, request)
+	}, requests).withWorkers(20)
 	results, errs, err := workerPoolDo(job)
 	if err != nil {
 		return nil, err
@@ -213,12 +213,12 @@ func fetchLatestReleases(requests []*releaseRequest) (appReleaseList, error) {
 	return releases, nil
 }
 
-func fetchLatestReleaseTask(request *releaseRequest) (*appRelease, error) {
+func fetchLatestReleaseTask(ctx context.Context, client *github.Client, request *releaseRequest) (*appRelease, error) {
 	switch request.source {
 	case releaseSourceCodeberg:
 		return fetchLatestCodebergRelease(request)
 	case releaseSourceGithub:
-		return fetchLatestGithubRelease(request)
+		return fetchLatestGithubRelease(ctx, client, request)
 	case releaseSourceGitlab:
 		return fetchLatestGitLabRelease(request)
 	case releaseSourceDockerHub:
@@ -228,69 +228,34 @@ func fetchLatestReleaseTask(request *releaseRequest) (*appRelease, error) {
 	return nil, errors.New("unsupported source")
 }
 
-type githubReleaseResponseJson struct {
-	ID          int    `json:"ID"`
-	TagName     string `json:"tag_name"`
-	PublishedAt string `json:"published_at"`
-	HtmlUrl     string `json:"html_url"`
-	Body        string `json:"body"`
-	Reactions   struct {
-		Downvotes int `json:"-1"`
-	} `json:"reactions"`
-}
+func fetchLatestGithubRelease(ctx context.Context, client *github.Client, request *releaseRequest) (*appRelease, error) {
+	parts := strings.Split(request.Repository, "/")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid repository format: %s", request.Repository)
+	}
+	owner, repo := parts[0], parts[1]
 
-func fetchLatestGithubRelease(request *releaseRequest) (*appRelease, error) {
-	var requestURL string
+	var release *github.RepositoryRelease
+	var err error
+
 	if !request.IncludePreleases {
-		requestURL = fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", request.Repository)
+		release, _, err = client.Repositories.GetLatestRelease(ctx, owner, repo)
 	} else {
-		requestURL = fmt.Sprintf("https://api.github.com/repos/%s/releases", request.Repository)
+		releases, _, err := client.Repositories.ListReleases(ctx, owner, repo, &github.ListOptions{PerPage: 1})
+		if err != nil {
+			return nil, err
+		}
+		if len(releases) == 0 {
+			return nil, fmt.Errorf("no releases found for repository %s", request.Repository)
+		}
+		release = releases[0]
 	}
 
-	httpRequest, err := http.NewRequest("GET", requestURL, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO(pulse): Change secrets config approach
-	if request.token != nil {
-		httpRequest.Header.Add("Authorization", "Bearer "+(*request.token))
-	}
-	envToken := os.Getenv("GITHUB_TOKEN")
-	if envToken != "" {
-		httpRequest.Header.Add("Authorization", "Bearer "+envToken)
-	}
-
-	var response githubReleaseResponseJson
-
-	if !request.IncludePreleases {
-		response, err = decodeJsonFromRequest[githubReleaseResponseJson](defaultHTTPClient, httpRequest)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		responses, err := decodeJsonFromRequest[[]githubReleaseResponseJson](defaultHTTPClient, httpRequest)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(responses) == 0 {
-			return nil, fmt.Errorf("no releases found for repository %s", request.Repository)
-		}
-
-		response = responses[0]
-	}
-
-	return &appRelease{
-		ID:           strconv.Itoa(response.ID),
-		Description:  response.Body,
-		Source:       releaseSourceGithub,
-		Name:         request.Repository,
-		Version:      normalizeVersionFormat(response.TagName),
-		NotesUrl:     response.HtmlUrl,
-		TimeReleased: parseRFC3339Time(response.PublishedAt),
-		Downvotes:    response.Reactions.Downvotes,
-	}, nil
+	return &appRelease{raw: release}, nil
 }
 
 type dockerHubRepositoryTagsResponse struct {
@@ -374,13 +339,13 @@ func fetchLatestDockerHubRelease(request *releaseRequest) (*appRelease, error) {
 		notesURL = fmt.Sprintf(dockerHubRepoTagURLFormat, displayName, tag.Name)
 	}
 
-	return &appRelease{
-		Source:       releaseSourceDockerHub,
-		NotesUrl:     notesURL,
-		Name:         displayName,
-		Version:      tag.Name,
-		TimeReleased: parseRFC3339Time(tag.LastPushed),
-	}, nil
+	release := &github.RepositoryRelease{
+		Name:        &displayName,
+		HTMLURL:     &notesURL,
+		PublishedAt: &github.Timestamp{Time: parseRFC3339Time(tag.LastPushed)},
+	}
+
+	return &appRelease{raw: release}, nil
 }
 
 type gitlabReleaseResponseJson struct {
@@ -413,13 +378,13 @@ func fetchLatestGitLabRelease(request *releaseRequest) (*appRelease, error) {
 		return nil, err
 	}
 
-	return &appRelease{
-		Source:       releaseSourceGitlab,
-		Name:         request.Repository,
-		Version:      normalizeVersionFormat(response.TagName),
-		NotesUrl:     response.Links.Self,
-		TimeReleased: parseRFC3339Time(response.ReleasedAt),
-	}, nil
+	release := &github.RepositoryRelease{
+		Name:        &request.Repository,
+		HTMLURL:     &response.Links.Self,
+		PublishedAt: &github.Timestamp{Time: parseRFC3339Time(response.ReleasedAt)},
+	}
+
+	return &appRelease{raw: release}, nil
 }
 
 type codebergReleaseResponseJson struct {
@@ -446,11 +411,11 @@ func fetchLatestCodebergRelease(request *releaseRequest) (*appRelease, error) {
 		return nil, err
 	}
 
-	return &appRelease{
-		Source:       releaseSourceCodeberg,
-		Name:         request.Repository,
-		Version:      normalizeVersionFormat(response.TagName),
-		NotesUrl:     response.HtmlUrl,
-		TimeReleased: parseRFC3339Time(response.PublishedAt),
-	}, nil
+	release := &github.RepositoryRelease{
+		Name:        &request.Repository,
+		HTMLURL:     &response.HtmlUrl,
+		PublishedAt: &github.Timestamp{Time: parseRFC3339Time(response.PublishedAt)},
+	}
+
+	return &appRelease{raw: release}, nil
 }
