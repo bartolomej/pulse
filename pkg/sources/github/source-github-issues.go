@@ -1,8 +1,9 @@
-package sources
+package github
 
 import (
 	"context"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"os"
 	"sort"
 	"strings"
@@ -11,26 +12,26 @@ import (
 	"github.com/google/go-github/v72/github"
 )
 
-type GithubIssuesSource struct {
+type SourceIssues struct {
 	Repository string `yaml:"repository"`
 	Token      string `yaml:"token"`
 	Limit      int    `yaml:"limit"`
 	client     *github.Client
 }
 
-func NewGithubIssuesSource() *GithubIssuesSource {
-	return &GithubIssuesSource{}
+func NewIssuesSource() *SourceIssues {
+	return &SourceIssues{}
 }
 
-func (s *GithubIssuesSource) UID() string {
+func (s *SourceIssues) UID() string {
 	return fmt.Sprintf("issues/%s", s.Repository)
 }
 
-func (s *GithubIssuesSource) Name() string {
+func (s *SourceIssues) Name() string {
 	return fmt.Sprintf("Issue Activity (%s)", s.Repository)
 }
 
-func (s *GithubIssuesSource) URL() string {
+func (s *SourceIssues) URL() string {
 	return fmt.Sprintf("https://github.com/%s", s.Repository)
 }
 
@@ -71,7 +72,7 @@ func (i issueActivityList) sortByNewest() issueActivityList {
 	return i
 }
 
-func (s *GithubIssuesSource) Initialize() error {
+func (s *SourceIssues) Initialize() error {
 	if s.Limit <= 0 {
 		s.Limit = 10
 	}
@@ -90,7 +91,7 @@ func (s *GithubIssuesSource) Initialize() error {
 	return nil
 }
 
-func (s *GithubIssuesSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
+func (s *SourceIssues) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
 	activities, err := fetchIssueActivities(ctx, s.client, s.Repository)
 
 	if err != nil {

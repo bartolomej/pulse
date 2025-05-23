@@ -1,9 +1,10 @@
-package sources
+package reddit
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"html"
 	"log/slog"
 	"strings"
@@ -13,14 +14,13 @@ import (
 	"github.com/vartanbeno/go-reddit/v2/reddit"
 )
 
-type RedditSource struct {
-	Subreddit          string            `yaml:"subreddit"`
-	Proxy              proxyOptionsField `yaml:"proxy"`
-	SortBy             string            `yaml:"sort-by"`
-	TopPeriod          string            `yaml:"top-period"`
-	Search             string            `yaml:"search"`
-	Limit              int               `yaml:"limit"`
-	RequestURLTemplate string            `yaml:"request-url-template"`
+type SourceSubreddit struct {
+	Subreddit          string `yaml:"subreddit"`
+	SortBy             string `yaml:"sort-by"`
+	TopPeriod          string `yaml:"top-period"`
+	Search             string `yaml:"search"`
+	Limit              int    `yaml:"limit"`
+	RequestURLTemplate string `yaml:"request-url-template"`
 	client             *reddit.Client
 	AppAuth            struct {
 		Name   string `yaml:"name"`
@@ -29,19 +29,19 @@ type RedditSource struct {
 	} `yaml:"app-auth"`
 }
 
-func NewRedditSource() *RedditSource {
-	return &RedditSource{}
+func NewSourceSubreddit() *SourceSubreddit {
+	return &SourceSubreddit{}
 }
 
-func (s *RedditSource) UID() string {
+func (s *SourceSubreddit) UID() string {
 	return fmt.Sprintf("reddit/%s/%s/%s/%s", s.Subreddit, s.SortBy, s.TopPeriod, s.Search)
 }
 
-func (s *RedditSource) Name() string {
+func (s *SourceSubreddit) Name() string {
 	return fmt.Sprintf("Reddit (%s, %s, %s)", s.Subreddit, s.SortBy, s.TopPeriod)
 }
 
-func (s *RedditSource) URL() string {
+func (s *SourceSubreddit) URL() string {
 	return fmt.Sprintf("https://reddit.com/r/%s/%s", s.Subreddit, s.SortBy)
 }
 
@@ -86,7 +86,7 @@ func (p *redditPost) CreatedAt() time.Time {
 	return p.raw.Created.Time
 }
 
-func (s *RedditSource) Initialize() error {
+func (s *SourceSubreddit) Initialize() error {
 	if s.Subreddit == "" {
 		return errors.New("subreddit is required")
 	}
@@ -128,7 +128,7 @@ func (s *RedditSource) Initialize() error {
 	return nil
 }
 
-func (s *RedditSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
+func (s *SourceSubreddit) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
 	posts, err := s.fetchSubredditPosts(ctx)
 
 	if err != nil {
@@ -141,7 +141,7 @@ func (s *RedditSource) Stream(ctx context.Context, feed chan<- Activity, errs ch
 	}
 }
 
-func (s *RedditSource) fetchSubredditPosts(ctx context.Context) ([]*redditPost, error) {
+func (s *SourceSubreddit) fetchSubredditPosts(ctx context.Context) ([]*redditPost, error) {
 	var posts []*reddit.Post
 	var err error
 

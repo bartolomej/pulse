@@ -4,7 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
+	"github.com/glanceapp/glance/pkg/sources/changedetection"
+	"github.com/glanceapp/glance/pkg/sources/common"
+	"github.com/glanceapp/glance/pkg/sources/github"
+	"github.com/glanceapp/glance/pkg/sources/hackernews"
+	"github.com/glanceapp/glance/pkg/sources/lobsters"
+	"github.com/glanceapp/glance/pkg/sources/mastodon"
+	"github.com/glanceapp/glance/pkg/sources/reddit"
+	"github.com/glanceapp/glance/pkg/sources/rss"
 )
 
 func NewSource(widgetType string) (Source, error) {
@@ -16,25 +23,25 @@ func NewSource(widgetType string) (Source, error) {
 
 	switch widgetType {
 	case "mastodon-account":
-		s = NewMastodonAccountSource()
+		s = mastodon.NewSourceAccount()
 	case "mastodon-tag":
-		s = NewMastodonTagSource()
+		s = mastodon.NewSourceTag()
 	case "hacker-news":
-		s = NewHackerNewsSource()
+		s = hackernews.NewHackerNewsSource()
 	case "reddit":
-		s = NewRedditSource()
+		s = reddit.NewSourceSubreddit()
 	case "lobsters-tag":
-		s = NewLobstersTagSource()
+		s = lobsters.NewSourceTag()
 	case "lobsters-feed":
-		s = NewLobstersFeedSource()
+		s = lobsters.NewSourceFeed()
 	case "rss":
-		s = NewRSSSource()
+		s = rss.NewSourceFeed()
 	case "releases":
-		s = NewGithubReleasesSource()
+		s = github.NewReleaseSource()
 	case "issues":
-		s = NewGithubIssuesSource()
+		s = github.NewIssuesSource()
 	case "change-detection":
-		s = NewChangeDetectionSource()
+		s = changedetection.NewSourceWebsiteChange()
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", widgetType)
 	}
@@ -49,15 +56,5 @@ type Source interface {
 	// URL is a web resource representation of UID.
 	URL() string
 	Initialize() error
-	Stream(ctx context.Context, feed chan<- Activity, errs chan<- error)
-}
-
-// Activity TODO(pulse): Compute LLM summary
-type Activity interface {
-	UID() string
-	Title() string
-	Body() string
-	URL() string
-	ImageURL() string
-	CreatedAt() time.Time
+	Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error)
 }

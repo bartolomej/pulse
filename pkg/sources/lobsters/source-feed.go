@@ -1,36 +1,37 @@
-package sources
+package lobsters
 
 import (
 	"context"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/common"
 )
 
-type LobstersFeedSource struct {
+type SourceFeed struct {
 	InstanceURL string `yaml:"instance-url"`
 	CustomURL   string `yaml:"custom-url"`
 	FeedName    string `yaml:"feed"`
 	client      *LobstersClient
 }
 
-func NewLobstersFeedSource() *LobstersFeedSource {
-	return &LobstersFeedSource{
+func NewSourceFeed() *SourceFeed {
+	return &SourceFeed{
 		InstanceURL: "https://lobste.rs",
 	}
 }
 
-func (s *LobstersFeedSource) UID() string {
+func (s *SourceFeed) UID() string {
 	return fmt.Sprintf("lobsters-feed/%s/%s", s.InstanceURL, s.FeedName)
 }
 
-func (s *LobstersFeedSource) Name() string {
+func (s *SourceFeed) Name() string {
 	return fmt.Sprintf("Lobsters (%s)", s.FeedName)
 }
 
-func (s *LobstersFeedSource) URL() string {
+func (s *SourceFeed) URL() string {
 	return fmt.Sprintf("https://lobste.rs/%s", s.FeedName)
 }
 
-func (s *LobstersFeedSource) Initialize() error {
+func (s *SourceFeed) Initialize() error {
 
 	if s.FeedName == "" {
 		s.FeedName = "hottest"
@@ -45,7 +46,7 @@ func (s *LobstersFeedSource) Initialize() error {
 	return nil
 }
 
-func (s *LobstersFeedSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
+func (s *SourceFeed) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
 	var stories []*Story
 	var err error
 

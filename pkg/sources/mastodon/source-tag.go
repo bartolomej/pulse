@@ -1,35 +1,36 @@
-package sources
+package mastodon
 
 import (
 	"context"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/mattn/go-mastodon"
 )
 
-type MastodonTagSource struct {
+type SourceTag struct {
 	InstanceURL string
 	Hashtag     string
 }
 
-func NewMastodonTagSource() *MastodonTagSource {
-	return &MastodonTagSource{
+func NewSourceTag() *SourceTag {
+	return &SourceTag{
 		InstanceURL: "https://mastodon.social",
 	}
 }
 
-func (s *MastodonTagSource) UID() string {
+func (s *SourceTag) UID() string {
 	return fmt.Sprintf("mastodon/%s/%s", s.InstanceURL, s.Hashtag)
 }
 
-func (s *MastodonTagSource) Name() string {
+func (s *SourceTag) Name() string {
 	return fmt.Sprintf("Mastodon (%s)", s.Hashtag)
 }
 
-func (s *MastodonTagSource) URL() string {
+func (s *SourceTag) URL() string {
 	return fmt.Sprintf("%s/tags/%s", s.InstanceURL, s.Hashtag)
 }
 
-func (s *MastodonTagSource) Initialize() error {
+func (s *SourceTag) Initialize() error {
 	if s.InstanceURL == "" {
 		return fmt.Errorf("instance URL is required")
 	}
@@ -40,7 +41,7 @@ func (s *MastodonTagSource) Initialize() error {
 	return nil
 }
 
-func (s *MastodonTagSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
+func (s *SourceTag) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
 	client := mastodon.NewClient(&mastodon.Config{
 		Server:       s.InstanceURL,
 		ClientID:     "pulse-feed-aggregation",

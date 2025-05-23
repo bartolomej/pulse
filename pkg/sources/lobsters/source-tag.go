@@ -1,36 +1,37 @@
-package sources
+package lobsters
 
 import (
 	"context"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/common"
 )
 
-type LobstersTagSource struct {
+type SourceTag struct {
 	InstanceURL string `yaml:"instance-url"`
 	CustomURL   string `yaml:"custom-url"`
 	Tag         string `yaml:"tag"`
 	client      *LobstersClient
 }
 
-func NewLobstersTagSource() *LobstersTagSource {
-	return &LobstersTagSource{
+func NewSourceTag() *SourceTag {
+	return &SourceTag{
 		InstanceURL: "https://lobste.rs",
 	}
 }
 
-func (s *LobstersTagSource) UID() string {
+func (s *SourceTag) UID() string {
 	return fmt.Sprintf("lobsters-tag/%s/%s", s.InstanceURL, s.Tag)
 }
 
-func (s *LobstersTagSource) Name() string {
+func (s *SourceTag) Name() string {
 	return fmt.Sprintf("Lobsters (#%s)", s.Tag)
 }
 
-func (s *LobstersTagSource) URL() string {
+func (s *SourceTag) URL() string {
 	return fmt.Sprintf("https://lobste.rs/t/%s", s.Tag)
 }
 
-func (s *LobstersTagSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
+func (s *SourceTag) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
 	var stories []*Story
 	var err error
 
@@ -50,7 +51,7 @@ func (s *LobstersTagSource) Stream(ctx context.Context, feed chan<- Activity, er
 	}
 }
 
-func (s *LobstersTagSource) Initialize() error {
+func (s *SourceTag) Initialize() error {
 	if s.Tag == "" {
 		return fmt.Errorf("tag is required")
 	}

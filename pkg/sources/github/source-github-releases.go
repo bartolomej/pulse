@@ -1,8 +1,9 @@
-package sources
+package github
 
 import (
 	"context"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"os"
 	"sort"
 	"strings"
@@ -11,32 +12,32 @@ import (
 	"github.com/google/go-github/v72/github"
 )
 
-type GithubReleasesSource struct {
+type SourceRelease struct {
 	Repository       string `yaml:"repository"`
 	Token            string `yaml:"token"`
 	IncludePreleases bool   `yaml:"include-prereleases"`
 	client           *github.Client
 }
 
-func NewGithubReleasesSource() *GithubReleasesSource {
-	return &GithubReleasesSource{
+func NewReleaseSource() *SourceRelease {
+	return &SourceRelease{
 		IncludePreleases: false,
 	}
 }
 
-func (s *GithubReleasesSource) UID() string {
+func (s *SourceRelease) UID() string {
 	return fmt.Sprintf("releases/%s", s.Repository)
 }
 
-func (s *GithubReleasesSource) Name() string {
+func (s *SourceRelease) Name() string {
 	return fmt.Sprintf("Releases (%s)", s.Repository)
 }
 
-func (s *GithubReleasesSource) URL() string {
+func (s *SourceRelease) URL() string {
 	return fmt.Sprintf("https://github.com/%s", s.Repository)
 }
 
-func (s *GithubReleasesSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
+func (s *SourceRelease) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
 	release, err := s.fetchLatestGithubRelease(ctx)
 
 	if err != nil {
@@ -47,7 +48,7 @@ func (s *GithubReleasesSource) Stream(ctx context.Context, feed chan<- Activity,
 	feed <- release
 }
 
-func (s *GithubReleasesSource) Initialize() error {
+func (s *SourceRelease) Initialize() error {
 
 	token := s.Token
 	if token == "" {
@@ -101,7 +102,7 @@ func (r appReleaseList) sortByNewest() appReleaseList {
 	return r
 }
 
-func (s *GithubReleasesSource) fetchLatestGithubRelease(ctx context.Context) (*githubRelease, error) {
+func (s *SourceRelease) fetchLatestGithubRelease(ctx context.Context) (*githubRelease, error) {
 	parts := strings.Split(s.Repository, "/")
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("invalid repository format: %s", s.Repository)

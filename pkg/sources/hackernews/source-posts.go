@@ -1,8 +1,9 @@
-package sources
+package hackernews
 
 import (
 	"context"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"log/slog"
 	"time"
 
@@ -10,24 +11,24 @@ import (
 	"github.com/go-shiori/go-readability"
 )
 
-type HackerNewsSource struct {
+type SourcePosts struct {
 	SortBy string `yaml:"sort-by"`
 	client *gohn.Client
 }
 
-func NewHackerNewsSource() *HackerNewsSource {
-	return &HackerNewsSource{}
+func NewHackerNewsSource() *SourcePosts {
+	return &SourcePosts{}
 }
 
-func (s *HackerNewsSource) UID() string {
+func (s *SourcePosts) UID() string {
 	return fmt.Sprintf("hackernews/%s", s.SortBy)
 }
 
-func (s *HackerNewsSource) Name() string {
+func (s *SourcePosts) Name() string {
 	return fmt.Sprintf("HackerNews (%s)", s.SortBy)
 }
 
-func (s *HackerNewsSource) URL() string {
+func (s *SourcePosts) URL() string {
 	return fmt.Sprintf("https://news.ycombinator.com/%s", s.SortBy)
 }
 
@@ -71,7 +72,7 @@ func (p *hackerNewsPost) CreatedAt() time.Time {
 	return time.Unix(int64(*p.raw.Time), 0)
 }
 
-func (s *HackerNewsSource) Initialize() error {
+func (s *SourcePosts) Initialize() error {
 	if s.SortBy != "top" && s.SortBy != "new" && s.SortBy != "best" {
 		s.SortBy = "top"
 	}
@@ -85,7 +86,7 @@ func (s *HackerNewsSource) Initialize() error {
 	return nil
 }
 
-func (s *HackerNewsSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
+func (s *SourcePosts) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
 	posts, err := s.fetchHackerNewsPosts(ctx)
 
 	if err != nil {
@@ -99,7 +100,7 @@ func (s *HackerNewsSource) Stream(ctx context.Context, feed chan<- Activity, err
 
 }
 
-func (s *HackerNewsSource) fetchHackerNewsPosts(ctx context.Context) ([]*hackerNewsPost, error) {
+func (s *SourcePosts) fetchHackerNewsPosts(ctx context.Context) ([]*hackerNewsPost, error) {
 	var storyIDs []*int
 	var err error
 

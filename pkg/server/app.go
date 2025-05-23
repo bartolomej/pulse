@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/glanceapp/glance/pkg/sources"
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/glanceapp/glance/pkg/widgets"
 	"github.com/glanceapp/glance/web"
 	"log"
@@ -50,7 +50,7 @@ type Application struct {
 
 func NewApplication(c *Config) (*Application, error) {
 	app := &Application{
-		Version:    sources.BuildVersion,
+		Version:    common.BuildVersion,
 		CreatedAt:  time.Now(),
 		Config:     *c,
 		slugToPage: make(map[string]*page),

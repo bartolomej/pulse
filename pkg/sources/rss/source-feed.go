@@ -1,8 +1,9 @@
-package sources
+package rss
 
 import (
 	"context"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"html"
 	"net/http"
 	"net/url"
@@ -14,8 +15,6 @@ import (
 	"github.com/mmcdole/gofeed"
 	gofeedext "github.com/mmcdole/gofeed/extensions"
 )
-
-var feedParser = gofeed.NewParser()
 
 type customTransport struct {
 	headers map[string]string
@@ -29,28 +28,28 @@ func (t *customTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.base.RoundTrip(req)
 }
 
-type RSSSource struct {
+type SourceFeed struct {
 	FeedURL string            `yaml:"url"`
 	Headers map[string]string `yaml:"headers"`
 }
 
-func NewRSSSource() *RSSSource {
-	return &RSSSource{}
+func NewSourceFeed() *SourceFeed {
+	return &SourceFeed{}
 }
 
-func (s *RSSSource) UID() string {
+func (s *SourceFeed) UID() string {
 	return fmt.Sprintf("rss/%s", s.FeedURL)
 }
 
-func (s *RSSSource) Name() string {
+func (s *SourceFeed) Name() string {
 	return fmt.Sprintf("RSS (%s)", s.FeedURL)
 }
 
-func (s *RSSSource) URL() string {
+func (s *SourceFeed) URL() string {
 	return s.FeedURL
 }
 
-func (s *RSSSource) Initialize() error {
+func (s *SourceFeed) Initialize() error {
 	if s.FeedURL == "" {
 		return fmt.Errorf("URL is required")
 	}
@@ -58,9 +57,9 @@ func (s *RSSSource) Initialize() error {
 	return nil
 }
 
-func (s *RSSSource) Stream(ctx context.Context, feed chan<- Activity, errs chan<- error) {
+func (s *SourceFeed) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
 	parser := gofeed.NewParser()
-	parser.UserAgent = PulseUserAgentString
+	parser.UserAgent = common.PulseUserAgentString
 
 	if s.Headers != nil {
 		parser.Client = &http.Client{
@@ -221,9 +220,9 @@ func sanitizeFeedDescription(description string) string {
 }
 
 func shortenFeedDescriptionLen(description string, maxLen int) string {
-	description, _ = limitStringLength(description, 1000)
+	description, _ = common.LimitStringLength(description, 1000)
 	description = sanitizeFeedDescription(description)
-	description, limited := limitStringLength(description, maxLen)
+	description, limited := common.LimitStringLength(description, maxLen)
 
 	if limited {
 		description += "…"
