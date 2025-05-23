@@ -3,8 +3,6 @@ package sources
 import (
 	"context"
 	"log/slog"
-	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-shiori/go-readability"
@@ -12,13 +10,51 @@ import (
 
 type lobstersSource struct {
 	sourceBase     `yaml:",inline"`
-	Posts          forumPostList `yaml:"-"`
-	InstanceURL    string        `yaml:"instance-url"`
-	CustomURL      string        `yaml:"custom-url"`
-	Limit          int           `yaml:"limit"`
-	SortBy         string        `yaml:"sort-by"`
-	Tags           []string      `yaml:"tags"`
-	ShowThumbnails bool          `yaml:"-"`
+	Posts          []*lobstersPost `yaml:"-"`
+	InstanceURL    string          `yaml:"instance-url"`
+	CustomURL      string          `yaml:"custom-url"`
+	Limit          int             `yaml:"limit"`
+	SortBy         string          `yaml:"sort-by"`
+	Tags           []string        `yaml:"tags"`
+	ShowThumbnails bool            `yaml:"-"`
+	client         *LobstersClient
+}
+
+type lobstersPost struct {
+	raw *Story
+}
+
+func (p *lobstersPost) UID() string {
+	return p.raw.ID
+}
+
+func (p *lobstersPost) Title() string {
+	return p.raw.Title
+}
+
+func (p *lobstersPost) Body() string {
+	body := p.raw.Title
+	if p.raw.URL != "" {
+		article, err := readability.FromURL(p.raw.URL, 5*time.Second)
+		if err == nil {
+			body += "\n\nReferenced article: \n" + article.TextContent
+		} else {
+			slog.Error("Failed to fetch lobster article", "error", err, "url", p.raw.URL)
+		}
+	}
+	return body
+}
+
+func (p *lobstersPost) URL() string {
+	return p.raw.URL
+}
+
+func (p *lobstersPost) ImageURL() string {
+	return ""
+}
+
+func (p *lobstersPost) CreatedAt() time.Time {
+	return p.raw.ParsedTime
 }
 
 func (s *lobstersSource) Feed() []Activity {
@@ -46,14 +82,32 @@ func (s *lobstersSource) Initialize() error {
 		s.Limit = 15
 	}
 
+	s.client = NewLobstersClient(s.InstanceURL)
+
 	return nil
 }
 
 func (s *lobstersSource) Update(ctx context.Context) {
-	posts, err := fetchLobstersPosts(s.CustomURL, s.InstanceURL, s.SortBy, s.Tags)
+	var stories []*Story
+	var err error
+
+	if s.CustomURL != "" {
+		stories, err = s.client.GetStoriesFromCustomURL(ctx, s.CustomURL)
+	} else {
+		stories, err = s.client.GetStories(ctx, s.SortBy, s.Tags)
+	}
 
 	if !s.canContinueUpdateAfterHandlingErr(err) {
 		return
+	}
+
+	if len(stories) == 0 {
+		return
+	}
+
+	posts := make([]*lobstersPost, 0, len(stories))
+	for _, story := range stories {
+		posts = append(posts, &lobstersPost{raw: story})
 	}
 
 	if s.Limit < len(posts) {
@@ -61,97 +115,4 @@ func (s *lobstersSource) Update(ctx context.Context) {
 	}
 
 	s.Posts = posts
-}
-
-type lobstersPostResponseJson struct {
-	ID           string   `json:"short_id"`
-	CreatedAt    string   `json:"created_at"`
-	Title        string   `json:"title"`
-	URL          string   `json:"url"`
-	Score        int      `json:"score"`
-	CommentCount int      `json:"comment_count"`
-	CommentsURL  string   `json:"comments_url"`
-	Tags         []string `json:"tags"`
-}
-
-type lobstersFeedResponseJson []lobstersPostResponseJson
-
-func fetchLobstersPostsFromFeed(feedUrl string) (forumPostList, error) {
-	request, err := http.NewRequest("GET", feedUrl, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	feed, err := decodeJsonFromRequest[lobstersFeedResponseJson](defaultHTTPClient, request)
-	if err != nil {
-		return nil, err
-	}
-
-	posts := make(forumPostList, 0, len(feed))
-
-	for _, post := range feed {
-		createdAt, _ := time.Parse(time.RFC3339, post.CreatedAt)
-
-		forumPost := forumPost{
-			ID:              post.ID,
-			title:           post.Title,
-			Description:     post.Title,
-			DiscussionUrl:   post.CommentsURL,
-			TargetUrl:       post.URL,
-			TargetUrlDomain: extractDomainFromUrl(post.URL),
-			CommentCount:    post.CommentCount,
-			Score:           post.Score,
-			TimePosted:      createdAt,
-			Tags:            post.Tags,
-		}
-
-		article, err := readability.FromURL(post.URL, 5*time.Second)
-		if err == nil {
-			forumPost.Description = article.TextContent
-		} else {
-			slog.Error("Failed to fetch lobster article", "error", err, "url", forumPost.TargetUrl)
-		}
-
-		posts = append(posts, forumPost)
-	}
-
-	if len(posts) == 0 {
-		return nil, errNoContent
-	}
-
-	return posts, nil
-}
-
-func fetchLobstersPosts(customURL string, instanceURL string, sortBy string, tags []string) (forumPostList, error) {
-	var feedUrl string
-
-	if customURL != "" {
-		feedUrl = customURL
-	} else {
-		if instanceURL != "" {
-			instanceURL = strings.TrimRight(instanceURL, "/") + "/"
-		} else {
-			instanceURL = "https://lobste.rs/"
-		}
-
-		if sortBy == "hot" {
-			sortBy = "hottest"
-		} else if sortBy == "new" {
-			sortBy = "newest"
-		}
-
-		if len(tags) == 0 {
-			feedUrl = instanceURL + sortBy + ".json"
-		} else {
-			tags := strings.Join(tags, ",")
-			feedUrl = instanceURL + "t/" + tags + ".json"
-		}
-	}
-
-	posts, err := fetchLobstersPostsFromFeed(feedUrl)
-	if err != nil {
-		return nil, err
-	}
-
-	return posts, nil
 }

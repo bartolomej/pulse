@@ -4,22 +4,61 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
+	"github.com/alexferrari88/gohn/pkg/gohn"
 	"github.com/go-shiori/go-readability"
 )
 
 type hackerNewsSource struct {
 	sourceBase          `yaml:",inline"`
-	Posts               forumPostList `yaml:"-"`
-	Limit               int           `yaml:"limit"`
-	SortBy              string        `yaml:"sort-by"`
-	ExtraSortBy         string        `yaml:"extra-sort-by"`
-	CommentsUrlTemplate string        `yaml:"comments-url-template"`
-	ShowThumbnails      bool          `yaml:"-"`
+	Posts               []*hackerNewsPost `yaml:"-"`
+	Limit               int               `yaml:"limit"`
+	SortBy              string            `yaml:"sort-by"`
+	ExtraSortBy         string            `yaml:"extra-sort-by"`
+	CommentsUrlTemplate string            `yaml:"comments-url-template"`
+	ShowThumbnails      bool              `yaml:"-"`
+	client              *gohn.Client
+}
+
+type hackerNewsPost struct {
+	raw *gohn.Item
+}
+
+func (p *hackerNewsPost) UID() string {
+	return fmt.Sprintf("%d", *p.raw.ID)
+}
+
+func (p *hackerNewsPost) Title() string {
+	return *p.raw.Title
+}
+
+func (p *hackerNewsPost) Body() string {
+	body := *p.raw.Title
+	if p.raw.URL != nil {
+		article, err := readability.FromURL(*p.raw.URL, 5*time.Second)
+		if err == nil {
+			body += fmt.Sprintf("\n\nReferenced article: \n%s", article.TextContent)
+		} else {
+			slog.Error("Failed to fetch hacker news article", "error", err, "url", *p.raw.URL)
+		}
+	}
+	return body
+}
+
+func (p *hackerNewsPost) URL() string {
+	if p.raw.URL != nil {
+		return *p.raw.URL
+	}
+	return fmt.Sprintf("https://news.ycombinator.com/item?id=%d", *p.raw.ID)
+}
+
+func (p *hackerNewsPost) ImageURL() string {
+	return ""
+}
+
+func (p *hackerNewsPost) CreatedAt() time.Time {
+	return time.Unix(int64(*p.raw.Time), 0)
 }
 
 func (s *hackerNewsSource) Feed() []Activity {
@@ -44,19 +83,19 @@ func (s *hackerNewsSource) Initialize() error {
 		s.SortBy = "top"
 	}
 
+	var err error
+	s.client, err = gohn.NewClient(nil)
+	if err != nil {
+		return fmt.Errorf("creating hacker news client: %v", err)
+	}
+
 	return nil
 }
 
 func (s *hackerNewsSource) Update(ctx context.Context) {
-	posts, err := fetchHackerNewsPosts(s.SortBy, 40, s.CommentsUrlTemplate)
-
+	posts, err := s.fetchHackerNewsPosts(ctx)
 	if !s.canContinueUpdateAfterHandlingErr(err) {
 		return
-	}
-
-	if s.ExtraSortBy == "engagement" {
-		posts.calculateEngagement()
-		posts.sortByEngagement()
 	}
 
 	if s.Limit < len(posts) {
@@ -66,98 +105,49 @@ func (s *hackerNewsSource) Update(ctx context.Context) {
 	s.Posts = posts
 }
 
-type hackerNewsPostResponseJson struct {
-	Id           int    `json:"ID"`
-	Score        int    `json:"score"`
-	Title        string `json:"title"`
-	TargetUrl    string `json:"url,omitempty"`
-	CommentCount int    `json:"descendants"`
-	TimePosted   int64  `json:"time"`
-}
+func (s *hackerNewsSource) fetchHackerNewsPosts(ctx context.Context) ([]*hackerNewsPost, error) {
+	var storyIDs []*int
+	var err error
 
-func fetchHackerNewsPostIds(sort string) ([]int, error) {
-	request, _ := http.NewRequest("GET", fmt.Sprintf("https://hacker-news.firebaseio.com/v0/%sstories.json", sort), nil)
-	response, err := decodeJsonFromRequest[[]int](defaultHTTPClient, request)
+	switch s.SortBy {
+	case "top":
+		storyIDs, err = s.client.Stories.GetTopIDs(ctx)
+	case "new":
+		storyIDs, err = s.client.Stories.GetNewIDs(ctx)
+	case "best":
+		storyIDs, err = s.client.Stories.GetBestIDs(ctx)
+	}
+
 	if err != nil {
-		return nil, fmt.Errorf("%w: could not fetch list of post IDs", errNoContent)
+		return nil, fmt.Errorf("fetching story IDs: %v", err)
 	}
 
-	return response, nil
-}
-
-func fetchHackerNewsPostsFromIds(postIds []int, commentsUrlTemplate string) (forumPostList, error) {
-	requests := make([]*http.Request, len(postIds))
-
-	for i, id := range postIds {
-		request, _ := http.NewRequest("GET", fmt.Sprintf("https://hacker-news.firebaseio.com/v0/item/%d.json", id), nil)
-		requests[i] = request
+	if len(storyIDs) == 0 {
+		return nil, fmt.Errorf("no stories found")
 	}
 
-	task := decodeJsonFromRequestTask[hackerNewsPostResponseJson](defaultHTTPClient)
-	job := newJob(task, requests).withWorkers(30)
-	results, errs, err := workerPoolDo(job)
-	if err != nil {
-		return nil, err
-	}
-
-	posts := make(forumPostList, 0, len(postIds))
-
-	for i, res := range results {
-		if errs[i] != nil {
-			slog.Error("Failed to fetch or parse hacker news post", "error", errs[i], "url", requests[i].URL)
+	posts := make([]*hackerNewsPost, 0, len(storyIDs))
+	for _, id := range storyIDs {
+		if id == nil {
 			continue
 		}
 
-		var commentsUrl string
-
-		if commentsUrlTemplate == "" {
-			commentsUrl = "https://news.ycombinator.com/item?id=" + strconv.Itoa(res.Id)
-		} else {
-			commentsUrl = strings.ReplaceAll(commentsUrlTemplate, "{POST-ID}", strconv.Itoa(res.Id))
+		story, err := s.client.Items.Get(ctx, *id)
+		if err != nil {
+			slog.Error("Failed to fetch hacker news story", "error", err, "id", *id)
+			continue
 		}
 
-		forumPost := forumPost{
-			ID:              strconv.Itoa(res.Id),
-			title:           res.Title,
-			Description:     res.Title,
-			DiscussionUrl:   commentsUrl,
-			TargetUrl:       res.TargetUrl,
-			TargetUrlDomain: extractDomainFromUrl(res.TargetUrl),
-			CommentCount:    res.CommentCount,
-			Score:           res.Score,
-			TimePosted:      time.Unix(res.TimePosted, 0),
+		if story == nil {
+			continue
 		}
 
-		article, err := readability.FromURL(forumPost.TargetUrl, 5*time.Second)
-		if err == nil {
-			forumPost.Description = article.TextContent
-		} else {
-			slog.Error("Failed to fetch hacker news article", "error", err, "url", forumPost.TargetUrl)
-		}
-
-		posts = append(posts, forumPost)
+		posts = append(posts, &hackerNewsPost{raw: story})
 	}
 
 	if len(posts) == 0 {
-		return nil, errNoContent
-	}
-
-	if len(posts) != len(postIds) {
-		return posts, fmt.Errorf("%w could not fetch some hacker news posts", errPartialContent)
+		return nil, fmt.Errorf("no valid stories found")
 	}
 
 	return posts, nil
-}
-
-func fetchHackerNewsPosts(sort string, limit int, commentsUrlTemplate string) (forumPostList, error) {
-	postIds, err := fetchHackerNewsPostIds(sort)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(postIds) > limit {
-		postIds = postIds[:limit]
-	}
-
-	return fetchHackerNewsPostsFromIds(postIds, commentsUrlTemplate)
 }
