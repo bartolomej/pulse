@@ -17,14 +17,15 @@ import (
 )
 
 type githubReleasesSource struct {
-	sourceBase     `yaml:",inline"`
-	Releases       appReleaseList    `yaml:"-"`
-	Repositories   []*releaseRequest `yaml:"repositories"`
-	Token          string            `yaml:"token"`
-	GitLabToken    string            `yaml:"gitlab-token"`
-	Limit          int               `yaml:"limit"`
-	ShowSourceIcon bool              `yaml:"show-source-icon"`
-	client         *github.Client
+	sourceBase       `yaml:",inline"`
+	Releases         appReleaseList `yaml:"-"`
+	Repository       string         `yaml:"repository"`
+	Token            string         `yaml:"token"`
+	GitLabToken      string         `yaml:"gitlab-token"`
+	Limit            int            `yaml:"limit"`
+	ShowSourceIcon   bool           `yaml:"show-source-icon"`
+	IncludePreleases bool           `yaml:"include-prereleases"`
+	client           *github.Client
 }
 
 func (s *githubReleasesSource) Feed() []Activity {
@@ -53,31 +54,17 @@ func (s *githubReleasesSource) Initialize() error {
 		s.client = github.NewClient(nil)
 	}
 
-	for i := range s.Repositories {
-		r := s.Repositories[i]
-
-		if r.source == releaseSourceGithub && s.Token != "" {
-			r.token = &s.Token
-		} else if r.source == releaseSourceGitlab && s.GitLabToken != "" {
-			r.token = &s.GitLabToken
-		}
-	}
-
 	return nil
 }
 
 func (s *githubReleasesSource) Update(ctx context.Context) {
-	releases, err := fetchLatestReleases(ctx, s.client, s.Repositories)
+	release, err := fetchLatestRelease(ctx, s.client, s.Repository, s.IncludePreleases)
 
 	if !s.canContinueUpdateAfterHandlingErr(err) {
 		return
 	}
 
-	if len(releases) > s.Limit {
-		releases = releases[:s.Limit]
-	}
-
-	s.Releases = releases
+	s.Releases = appReleaseList{*release}
 }
 
 type releaseSource string
@@ -415,6 +402,36 @@ func fetchLatestCodebergRelease(request *releaseRequest) (*appRelease, error) {
 		Name:        &request.Repository,
 		HTMLURL:     &response.HtmlUrl,
 		PublishedAt: &github.Timestamp{Time: parseRFC3339Time(response.PublishedAt)},
+	}
+
+	return &appRelease{raw: release}, nil
+}
+
+func fetchLatestRelease(ctx context.Context, client *github.Client, repository string, includePrereleases bool) (*appRelease, error) {
+	parts := strings.Split(repository, "/")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid repository format: %s", repository)
+	}
+	owner, repo := parts[0], parts[1]
+
+	var release *github.RepositoryRelease
+	var err error
+
+	if !includePrereleases {
+		release, _, err = client.Repositories.GetLatestRelease(ctx, owner, repo)
+	} else {
+		releases, _, err := client.Repositories.ListReleases(ctx, owner, repo, &github.ListOptions{PerPage: 1})
+		if err != nil {
+			return nil, err
+		}
+		if len(releases) == 0 {
+			return nil, fmt.Errorf("no releases found for repository %s", repository)
+		}
+		release = releases[0]
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	return &appRelease{raw: release}, nil

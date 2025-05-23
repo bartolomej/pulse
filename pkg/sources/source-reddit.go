@@ -14,22 +14,20 @@ import (
 )
 
 type redditSource struct {
-	sourceBase          `yaml:",inline"`
-	Posts               []*redditPost     `yaml:"-"`
-	Subreddit           string            `yaml:"subreddit"`
-	Proxy               proxyOptionsField `yaml:"proxy"`
-	Style               string            `yaml:"style"`
-	ShowThumbnails      bool              `yaml:"show-thumbnails"`
-	ShowFlairs          bool              `yaml:"show-flairs"`
-	SortBy              string            `yaml:"sort-by"`
-	TopPeriod           string            `yaml:"top-period"`
-	Search              string            `yaml:"search"`
-	ExtraSortBy         string            `yaml:"extra-sort-by"`
-	CommentsURLTemplate string            `yaml:"comments-url-template"`
-	Limit               int               `yaml:"limit"`
-	RequestURLTemplate  string            `yaml:"request-url-template"`
-	client              *reddit.Client
-	AppAuth             struct {
+	sourceBase         `yaml:",inline"`
+	Posts              []*redditPost     `yaml:"-"`
+	Subreddit          string            `yaml:"subreddit"`
+	Proxy              proxyOptionsField `yaml:"proxy"`
+	Style              string            `yaml:"style"`
+	ShowThumbnails     bool              `yaml:"show-thumbnails"`
+	ShowFlairs         bool              `yaml:"show-flairs"`
+	SortBy             string            `yaml:"sort-by"`
+	TopPeriod          string            `yaml:"top-period"`
+	Search             string            `yaml:"search"`
+	Limit              int               `yaml:"limit"`
+	RequestURLTemplate string            `yaml:"request-url-template"`
+	client             *reddit.Client
+	AppAuth            struct {
 		Name   string `yaml:"name"`
 		ID     string `yaml:"ID"`
 		Secret string `yaml:"secret"`

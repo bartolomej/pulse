@@ -13,7 +13,7 @@ import (
 type changeDetectionSource struct {
 	sourceBase       `yaml:",inline"`
 	ChangeDetections changeDetectionWatchList `yaml:"-"`
-	WatchUUIDs       []string                 `yaml:"watches"`
+	WatchUUID        string                   `yaml:"watch"`
 	InstanceURL      string                   `yaml:"instance-url"`
 	Token            string                   `yaml:"token"`
 	Limit            int                      `yaml:"limit"`
@@ -42,27 +42,13 @@ func (s *changeDetectionSource) Initialize() error {
 }
 
 func (s *changeDetectionSource) Update(ctx context.Context) {
-	if len(s.WatchUUIDs) == 0 {
-		uuids, err := fetchWatchUUIDsFromChangeDetection(s.InstanceURL, string(s.Token))
-
-		if !s.canContinueUpdateAfterHandlingErr(err) {
-			return
-		}
-
-		s.WatchUUIDs = uuids
-	}
-
-	watches, err := fetchWatchesFromChangeDetection(s.InstanceURL, s.WatchUUIDs, string(s.Token))
+	watch, err := fetchWatchFromChangeDetection(s.InstanceURL, s.WatchUUID, string(s.Token))
 
 	if !s.canContinueUpdateAfterHandlingErr(err) {
 		return
 	}
 
-	if len(watches) > s.Limit {
-		watches = watches[:s.Limit]
-	}
-
-	s.ChangeDetections = watches
+	s.ChangeDetections = changeDetectionWatchList{watch}
 }
 
 type changeDetectionWatch struct {
@@ -114,6 +100,14 @@ type changeDetectionResponseJson struct {
 	LastChanged  int64  `json:"last_changed"`
 	DateCreated  int64  `json:"date_created"`
 	PreviousHash string `json:"previous_md5"`
+}
+
+type changeDetectionWatchResponseJson struct {
+	Title        string `json:"title"`
+	URL          string `json:"url"`
+	LastChanged  string `json:"last_changed"`
+	DiffURL      string `json:"diff_url"`
+	PreviousHash string `json:"previous_hash"`
 }
 
 func fetchWatchUUIDsFromChangeDetection(instanceURL string, token string) ([]string, error) {
@@ -215,4 +209,32 @@ func fetchWatchesFromChangeDetection(instanceURL string, requestedWatchIDs []str
 	}
 
 	return watches, nil
+}
+
+func fetchWatchFromChangeDetection(instanceURL string, watchUUID string, token string) (changeDetectionWatch, error) {
+	req, err := http.NewRequest(
+		"GET",
+		fmt.Sprintf("%s/api/v1/watch/%s", instanceURL, watchUUID),
+		nil,
+	)
+	if err != nil {
+		return changeDetectionWatch{}, err
+	}
+
+	if token != "" {
+		req.Header.Add("X-API-Key", token)
+	}
+
+	response, err := decodeJsonFromRequest[changeDetectionWatchResponseJson](defaultHTTPClient, req)
+	if err != nil {
+		return changeDetectionWatch{}, err
+	}
+
+	return changeDetectionWatch{
+		title:        response.Title,
+		url:          response.URL,
+		LastChanged:  parseRFC3339Time(response.LastChanged),
+		DiffURL:      response.DiffURL,
+		PreviousHash: response.PreviousHash,
+	}, nil
 }

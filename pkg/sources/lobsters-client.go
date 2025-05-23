@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+// There is no official REST API, but each page can be fetched as JSON.
+// See: https://lobste.rs/s/r9oskz/is_there_api_documentation_for_lobsters
 type LobstersClient struct {
 	httpClient *http.Client
 	baseURL    string
@@ -37,8 +39,10 @@ type Story struct {
 	ParsedTime   time.Time `json:"-"`
 }
 
-func (c *LobstersClient) GetStories(ctx context.Context, sortBy string, tags []string) ([]*Story, error) {
-	var url string
+func (c *LobstersClient) GetStoriesBySort(ctx context.Context, sortBy string) ([]*Story, error) {
+	if sortBy == "" {
+		sortBy = "hot"
+	}
 
 	if sortBy == "hot" {
 		sortBy = "hottest"
@@ -46,13 +50,16 @@ func (c *LobstersClient) GetStories(ctx context.Context, sortBy string, tags []s
 		sortBy = "newest"
 	}
 
-	if len(tags) == 0 {
-		url = fmt.Sprintf("%s/%s.json", c.baseURL, sortBy)
-	} else {
-		tagsStr := strings.Join(tags, ",")
-		url = fmt.Sprintf("%s/t/%s.json", c.baseURL, tagsStr)
-	}
+	url := fmt.Sprintf("%s/%s.json", c.baseURL, sortBy)
+	return c.fetchStories(ctx, url)
+}
 
+func (c *LobstersClient) GetStoriesByTag(ctx context.Context, tag string) ([]*Story, error) {
+	url := fmt.Sprintf("%s/t/%s.json", c.baseURL, tag)
+	return c.fetchStories(ctx, url)
+}
+
+func (c *LobstersClient) fetchStories(ctx context.Context, url string) ([]*Story, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %v", err)

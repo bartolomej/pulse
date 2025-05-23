@@ -4,14 +4,11 @@ import (
 	"context"
 	"fmt"
 	"html"
-	"io"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/mmcdole/gofeed"
@@ -20,21 +17,23 @@ import (
 
 var feedParser = gofeed.NewParser()
 
+type customTransport struct {
+	headers map[string]string
+	base    http.RoundTripper
+}
+
+func (t *customTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	for key, value := range t.headers {
+		req.Header.Set(key, value)
+	}
+	return t.base.RoundTrip(req)
+}
+
 type rssSource struct {
-	sourceBase       `yaml:",inline"`
-	FeedRequests     []rssFeedRequest `yaml:"feeds"`
-	Style            string           `yaml:"style"`
-	ThumbnailHeight  float64          `yaml:"thumbnail-height"`
-	CardHeight       float64          `yaml:"card-height"`
-	Limit            int              `yaml:"limit"`
-	SingleLineTitles bool             `yaml:"single-line-titles"`
-	PreserveOrder    bool             `yaml:"preserve-order"`
-
-	Items          rssFeedItemList `yaml:"-"`
-	NoItemsMessage string          `yaml:"-"`
-
-	cachedFeedsMutex sync.Mutex
-	cachedFeeds      map[string]*cachedRSSFeed `yaml:"-"`
+	sourceBase `yaml:",inline"`
+	URL        string            `yaml:"url"`
+	Headers    map[string]string `yaml:"headers"`
+	Items      rssFeedItemList   `yaml:"-"`
 }
 
 func (s *rssSource) Feed() []Activity {
@@ -46,306 +45,140 @@ func (s *rssSource) Feed() []Activity {
 }
 
 func (s *rssSource) Initialize() error {
+	if s.URL == "" {
+		return fmt.Errorf("URL is required")
+	}
+
 	s.withTitle("RSS Feed").withCacheDuration(2 * time.Hour)
-
-	if s.Limit <= 0 {
-		s.Limit = 25
-	}
-
-	if s.ThumbnailHeight < 0 {
-		s.ThumbnailHeight = 0
-	}
-
-	if s.CardHeight < 0 {
-		s.CardHeight = 0
-	}
-
-	if s.Style == "detailed-list" {
-		for i := range s.FeedRequests {
-			s.FeedRequests[i].IsDetailed = true
-		}
-	}
-
-	s.NoItemsMessage = "No items were returned from the feeds."
-	s.cachedFeeds = make(map[string]*cachedRSSFeed)
-
 	return nil
 }
 
 func (s *rssSource) Update(ctx context.Context) {
-	items, err := s.fetchItemsFromFeeds()
+	parser := gofeed.NewParser()
+	parser.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 
-	if !s.canContinueUpdateAfterHandlingErr(err) {
+	if s.Headers != nil {
+		parser.Client = &http.Client{
+			Transport: &customTransport{
+				headers: s.Headers,
+				base:    http.DefaultTransport,
+			},
+		}
+	}
+
+	feed, err := parser.ParseURL(s.URL)
+	if err != nil {
+		s.withError(fmt.Errorf("failed to parse RSS feed: %w", err))
 		return
 	}
 
-	if !s.PreserveOrder {
-		items.sortByNewest()
+	if feed == nil {
+		s.withError(fmt.Errorf("feed is nil"))
+		return
 	}
 
-	if len(items) > s.Limit {
-		items = items[:s.Limit]
+	if len(feed.Items) == 0 {
+		s.withError(fmt.Errorf("feed has no items"))
+		return
 	}
 
-	s.Items = items
+	var items []*rssFeedItem
+	for _, item := range feed.Items {
+		rssItem := &rssFeedItem{
+			raw:      item,
+			feedLink: feed.Link,
+		}
+		items = append(items, rssItem)
+	}
+
+	s.Items = rssFeedItemList(items).sortByNewest()
 }
 
 type cachedRSSFeed struct {
 	etag         string
 	lastModified string
-	items        []rssFeedItem
+	items        []*rssFeedItem
 }
 
 type rssFeedItem struct {
-	ID          string
-	ChannelName string
-	ChannelURL  string
-	title       string
-	Link        string
-	imageURL    string
-	Categories  []string
-	Description string
-	PublishedAt time.Time
+	raw      *gofeed.Item
+	feedLink string
 }
 
-func (r rssFeedItem) UID() string {
-	return r.ID
+func (i *rssFeedItem) UID() string {
+	if i.raw.GUID != "" {
+		return i.raw.GUID
+	}
+	return i.URL()
 }
 
-func (r rssFeedItem) Title() string {
-	return r.title
+func (i *rssFeedItem) Title() string {
+	if i.raw.Title != "" {
+		return html.UnescapeString(i.raw.Title)
+	}
+	return shortenFeedDescriptionLen(i.raw.Description, 100)
 }
 
-func (r rssFeedItem) Body() string {
-	return r.Description
+func (i *rssFeedItem) Body() string {
+	if i.raw.Content != "" {
+		return i.raw.Content
+	}
+	return i.raw.Description
 }
 
-func (r rssFeedItem) URL() string {
-	return r.Link
+func (i *rssFeedItem) URL() string {
+	if strings.HasPrefix(i.raw.Link, "http://") || strings.HasPrefix(i.raw.Link, "https://") {
+		return i.raw.Link
+	}
+
+	parsedUrl, err := url.Parse(i.feedLink)
+	if err == nil {
+		link := i.raw.Link
+		if !strings.HasPrefix(link, "/") {
+			link = "/" + link
+		}
+		return parsedUrl.Scheme + "://" + parsedUrl.Host + link
+	}
+	return i.raw.Link
 }
 
-func (r rssFeedItem) ImageURL() string {
-	return r.imageURL
+func (i *rssFeedItem) ImageURL() string {
+	if i.raw.Image != nil && i.raw.Image.URL != "" {
+		return i.raw.Image.URL
+	}
+	if url := findThumbnailInItemExtensions(i.raw); url != "" {
+		return url
+	}
+	return ""
 }
 
-func (r rssFeedItem) CreatedAt() time.Time {
-	return r.PublishedAt
+func (i *rssFeedItem) CreatedAt() time.Time {
+	if i.raw.PublishedParsed != nil {
+		return *i.raw.PublishedParsed
+	}
+	if i.raw.UpdatedParsed != nil {
+		return *i.raw.UpdatedParsed
+	}
+	return time.Now()
 }
 
-type rssFeedRequest struct {
-	URL             string            `yaml:"url"`
-	Title           string            `yaml:"title"`
-	HideCategories  bool              `yaml:"hide-categories"`
-	HideDescription bool              `yaml:"hide-description"`
-	Limit           int               `yaml:"limit"`
-	ItemLinkPrefix  string            `yaml:"item-link-prefix"`
-	Headers         map[string]string `yaml:"headers"`
-	IsDetailed      bool              `yaml:"-"`
+func (i *rssFeedItem) Categories() []string {
+	categories := make([]string, 0, len(i.raw.Categories))
+	for _, category := range i.raw.Categories {
+		if category != "" {
+			categories = append(categories, category)
+		}
+	}
+	return categories
 }
 
-type rssFeedItemList []rssFeedItem
+type rssFeedItemList []*rssFeedItem
 
 func (f rssFeedItemList) sortByNewest() rssFeedItemList {
 	sort.Slice(f, func(i, j int) bool {
-		return f[i].PublishedAt.After(f[j].PublishedAt)
+		return f[i].CreatedAt().After(f[j].CreatedAt())
 	})
-
 	return f
-}
-
-func (s *rssSource) fetchItemsFromFeeds() (rssFeedItemList, error) {
-	requests := s.FeedRequests
-
-	job := newJob(s.fetchItemsFromFeedTask, requests).withWorkers(30)
-	feeds, errs, err := workerPoolDo(job)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errNoContent, err)
-	}
-
-	failed := 0
-	entries := make(rssFeedItemList, 0, len(feeds)*10)
-	seen := make(map[string]struct{})
-
-	for i := range feeds {
-		if errs[i] != nil {
-			failed++
-			slog.Error("Failed to get RSS feed", "url", requests[i].URL, "error", errs[i])
-			continue
-		}
-
-		for _, item := range feeds[i] {
-			if _, exists := seen[item.Link]; exists {
-				continue
-			}
-			entries = append(entries, item)
-			seen[item.Link] = struct{}{}
-		}
-	}
-
-	if failed == len(requests) {
-		return nil, errNoContent
-	}
-
-	if failed > 0 {
-		return entries, fmt.Errorf("%w: missing %d RSS feeds", errPartialContent, failed)
-	}
-
-	return entries, nil
-}
-
-func (s *rssSource) fetchItemsFromFeedTask(request rssFeedRequest) ([]rssFeedItem, error) {
-	req, err := http.NewRequest("GET", request.URL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("User-Agent", pulseUserAgentString)
-
-	s.cachedFeedsMutex.Lock()
-	cache, isCached := s.cachedFeeds[request.URL]
-	if isCached {
-		if cache.etag != "" {
-			req.Header.Add("If-None-Match", cache.etag)
-		}
-		if cache.lastModified != "" {
-			req.Header.Add("If-Modified-Since", cache.lastModified)
-		}
-	}
-	s.cachedFeedsMutex.Unlock()
-
-	for key, value := range request.Headers {
-		req.Header.Set(key, value)
-	}
-
-	resp, err := defaultHTTPClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotModified && isCached {
-		return cache.items, nil
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code %d from %s", resp.StatusCode, request.URL)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	feed, err := feedParser.ParseString(string(body))
-	if err != nil {
-		return nil, err
-	}
-
-	if request.Limit > 0 && len(feed.Items) > request.Limit {
-		feed.Items = feed.Items[:request.Limit]
-	}
-
-	items := make(rssFeedItemList, 0, len(feed.Items))
-
-	for i := range feed.Items {
-		item := feed.Items[i]
-
-		rssItem := rssFeedItem{
-			ID:         item.GUID,
-			ChannelURL: feed.Link,
-		}
-
-		if request.ItemLinkPrefix != "" {
-			rssItem.Link = request.ItemLinkPrefix + item.Link
-		} else if strings.HasPrefix(item.Link, "http://") || strings.HasPrefix(item.Link, "https://") {
-			rssItem.Link = item.Link
-		} else {
-			parsedUrl, err := url.Parse(feed.Link)
-			if err != nil {
-				parsedUrl, err = url.Parse(request.URL)
-			}
-
-			if err == nil {
-				var link string
-
-				if len(item.Link) > 0 && item.Link[0] == '/' {
-					link = item.Link
-				} else {
-					link = "/" + item.Link
-				}
-
-				rssItem.Link = parsedUrl.Scheme + "://" + parsedUrl.Host + link
-			}
-		}
-
-		if item.Title != "" {
-			rssItem.title = html.UnescapeString(item.Title)
-		} else {
-			rssItem.title = shortenFeedDescriptionLen(item.Description, 100)
-		}
-
-		if request.IsDetailed {
-			if !request.HideDescription && item.Description != "" && item.Title != "" {
-				rssItem.Description = shortenFeedDescriptionLen(item.Description, 200)
-			}
-
-			if !request.HideCategories {
-				var categories = make([]string, 0, 6)
-
-				for _, category := range item.Categories {
-					if len(categories) == 6 {
-						break
-					}
-
-					if len(category) == 0 || len(category) > 30 {
-						continue
-					}
-
-					categories = append(categories, category)
-				}
-
-				rssItem.Categories = categories
-			}
-		}
-
-		if request.Title != "" {
-			rssItem.ChannelName = request.Title
-		} else {
-			rssItem.ChannelName = feed.Title
-		}
-
-		if item.Image != nil {
-			rssItem.imageURL = item.Image.URL
-		} else if url := findThumbnailInItemExtensions(item); url != "" {
-			rssItem.imageURL = url
-		} else if feed.Image != nil {
-			if len(feed.Image.URL) > 0 && feed.Image.URL[0] == '/' {
-				rssItem.imageURL = strings.TrimRight(feed.Link, "/") + feed.Image.URL
-			} else {
-				rssItem.imageURL = feed.Image.URL
-			}
-		}
-
-		if item.PublishedParsed != nil {
-			rssItem.PublishedAt = *item.PublishedParsed
-		} else {
-			rssItem.PublishedAt = time.Now()
-		}
-
-		items = append(items, rssItem)
-	}
-
-	if resp.Header.Get("ETag") != "" || resp.Header.Get("Last-Modified") != "" {
-		s.cachedFeedsMutex.Lock()
-		s.cachedFeeds[request.URL] = &cachedRSSFeed{
-			etag:         resp.Header.Get("ETag"),
-			lastModified: resp.Header.Get("Last-Modified"),
-			items:        items,
-		}
-		s.cachedFeedsMutex.Unlock()
-	}
-
-	return items, nil
 }
 
 func findThumbnailInItemExtensions(item *gofeed.Item) string {

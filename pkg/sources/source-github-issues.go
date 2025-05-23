@@ -2,22 +2,19 @@ package sources
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/go-github/v72/github"
-	"gopkg.in/yaml.v3"
 )
 
 type githubIssuesSource struct {
 	sourceBase    `yaml:",inline"`
 	Issues        issueActivityList `yaml:"-"`
-	Repositories  []*issueRequest   `yaml:"repositories"`
+	Repository    string            `yaml:"repository"`
 	Token         string            `yaml:"token"`
 	Limit         int               `yaml:"limit"`
 	ActivityTypes []string          `yaml:"activity-types"`
@@ -69,32 +66,6 @@ func (i issueActivityList) sortByNewest() issueActivityList {
 	return i
 }
 
-type issueRequest struct {
-	Repository string `yaml:"repository"`
-	token      *string
-}
-
-func (i *issueRequest) UnmarshalYAML(node *yaml.Node) error {
-	var repository string
-
-	if err := node.Decode(&repository); err != nil {
-		type issueRequestAlias issueRequest
-		alias := (*issueRequestAlias)(i)
-		if err := node.Decode(alias); err != nil {
-			return fmt.Errorf("could not unmarshal repository into string or struct: %v", err)
-		}
-	}
-
-	if i.Repository == "" {
-		if repository == "" {
-			return errors.New("repository is required")
-		}
-		i.Repository = repository
-	}
-
-	return nil
-}
-
 func (s *githubIssuesSource) Initialize() error {
 	s.withTitle("Issue Activity").withCacheDuration(30 * time.Minute)
 
@@ -121,7 +92,7 @@ func (s *githubIssuesSource) Initialize() error {
 }
 
 func (s *githubIssuesSource) Update(ctx context.Context) {
-	activities, err := fetchIssueActivities(ctx, s.client, s.Repositories, s.ActivityTypes)
+	activities, err := fetchIssueActivities(ctx, s.client, s.Repository, s.ActivityTypes)
 
 	if !s.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -134,47 +105,22 @@ func (s *githubIssuesSource) Update(ctx context.Context) {
 	s.Issues = activities
 }
 
-func fetchIssueActivities(ctx context.Context, client *github.Client, requests []*issueRequest, activityTypes []string) (issueActivityList, error) {
-	job := newJob(func(request *issueRequest) ([]issueActivity, error) {
-		return fetchIssueActivityTask(ctx, client, request)
-	}, requests).withWorkers(20)
-	results, errs, err := workerPoolDo(job)
+func fetchIssueActivities(ctx context.Context, client *github.Client, repository string, activityTypes []string) (issueActivityList, error) {
+	activities, err := fetchIssueActivityTask(ctx, client, repository)
 	if err != nil {
 		return nil, err
 	}
 
-	var failed int
-	activities := make(issueActivityList, 0, len(requests)*len(activityTypes))
-
-	for i := range results {
-		if errs[i] != nil {
-			failed++
-			slog.Error("Failed to fetch issue activity", "repository", requests[i].Repository, "error", errs[i])
-			continue
-		}
-
-		activities = append(activities, results[i]...)
-	}
-
-	if failed == len(requests) {
-		return nil, errNoContent
-	}
-
 	activities.sortByNewest()
-
-	if failed > 0 {
-		return activities, fmt.Errorf("%w: could not get issue activities for %d repositories", errPartialContent, failed)
-	}
-
 	return activities, nil
 }
 
-func fetchIssueActivityTask(ctx context.Context, client *github.Client, request *issueRequest) ([]issueActivity, error) {
+func fetchIssueActivityTask(ctx context.Context, client *github.Client, repository string) (issueActivityList, error) {
 	activities := make([]issueActivity, 0)
 
-	parts := strings.Split(request.Repository, "/")
+	parts := strings.Split(repository, "/")
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid repository format: %s", request.Repository)
+		return nil, fmt.Errorf("invalid repository format: %s", repository)
 	}
 	owner, repo := parts[0], parts[1]
 

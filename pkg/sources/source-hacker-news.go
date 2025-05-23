@@ -11,14 +11,11 @@ import (
 )
 
 type hackerNewsSource struct {
-	sourceBase          `yaml:",inline"`
-	Posts               []*hackerNewsPost `yaml:"-"`
-	Limit               int               `yaml:"limit"`
-	SortBy              string            `yaml:"sort-by"`
-	ExtraSortBy         string            `yaml:"extra-sort-by"`
-	CommentsUrlTemplate string            `yaml:"comments-url-template"`
-	ShowThumbnails      bool              `yaml:"-"`
-	client              *gohn.Client
+	sourceBase `yaml:",inline"`
+	Posts      []*hackerNewsPost `yaml:"-"`
+	Limit      int               `yaml:"limit"`
+	SortBy     string            `yaml:"sort-by"`
+	client     *gohn.Client
 }
 
 type hackerNewsPost struct {

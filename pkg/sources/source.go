@@ -19,14 +19,18 @@ func NewSource(widgetType string) (Source, error) {
 	var s Source
 
 	switch widgetType {
-	case "mastodon":
-		s = &mastodonSource{sourceBase: base}
+	case "mastodon-account":
+		s = &mastodonAccountSource{sourceBase: base}
+	case "mastodon-tag":
+		s = &mastodonTagSource{sourceBase: base}
 	case "hacker-news":
 		s = &hackerNewsSource{sourceBase: base}
 	case "reddit":
 		s = &redditSource{sourceBase: base}
-	case "lobsters":
-		s = &lobstersSource{sourceBase: base}
+	case "lobsters-tag":
+		s = &lobstersTagSource{sourceBase: base}
+	case "lobsters-feed":
+		s = &lobstersFeedSource{sourceBase: base}
 	case "rss":
 		s = &rssSource{sourceBase: base}
 	case "releases":
