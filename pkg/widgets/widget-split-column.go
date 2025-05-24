@@ -1,10 +1,9 @@
 package widgets
 
 import (
-	"context"
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/glanceapp/glance/web"
 	"html/template"
-	"time"
 )
 
 var splitColumnWidgetTemplate = web.MustParseTemplate("split-column.html", "widget-base.html")
@@ -15,33 +14,29 @@ type splitColumnWidget struct {
 	MaxColumns          int `yaml:"max-columns"`
 }
 
-func (widget *splitColumnWidget) Initialize() error {
+func newWidgetSplitColumn(id uint64, typ string, feed []common.Activity) *splitColumnWidget {
+	return &splitColumnWidget{
+		widgetBase:          newWidgetBase(id, typ, feed),
+		containerWidgetBase: containerWidgetBase{},
+		MaxColumns:          2,
+	}
+}
+
+func (w *splitColumnWidget) Initialize() error {
 	// TODO(pulse): Refactor error handling
 	//widget.withError(nil).withTitle("Split Column").setHideHeader(true)
 
-	if err := widget.containerWidgetBase._initializeWidgets(); err != nil {
+	if err := w.containerWidgetBase._initializeWidgets(); err != nil {
 		return err
 	}
 
-	if widget.MaxColumns < 2 {
-		widget.MaxColumns = 2
+	if w.MaxColumns < 2 {
+		w.MaxColumns = 2
 	}
 
 	return nil
 }
 
-func (widget *splitColumnWidget) Update(ctx context.Context) {
-	widget.containerWidgetBase._update(ctx)
-}
-
-func (widget *splitColumnWidget) SetProviders(providers *WidgetProviders) {
-	widget.containerWidgetBase._setProviders(providers)
-}
-
-func (widget *splitColumnWidget) RequiresUpdate(now *time.Time) bool {
-	return widget.containerWidgetBase._requiresUpdate(now)
-}
-
-func (widget *splitColumnWidget) Render() template.HTML {
-	return widget.renderTemplate(widget, splitColumnWidgetTemplate)
+func (w *splitColumnWidget) Render() template.HTML {
+	return w.renderTemplate(w, splitColumnWidgetTemplate)
 }
