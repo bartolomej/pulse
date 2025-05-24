@@ -5,30 +5,8 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"regexp"
-	"strings"
 	"time"
 )
-
-var sequentialWhitespacePattern = regexp.MustCompile(`\s+`)
-
-func prefixStringLines(prefix string, s string) string {
-	lines := strings.Split(s, "\n")
-
-	for i, line := range lines {
-		lines[i] = prefix + line
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-func titleToSlug(s string) string {
-	s = strings.ToLower(s)
-	s = sequentialWhitespacePattern.ReplaceAllString(s, "-")
-	s = strings.Trim(s, "-")
-
-	return s
-}
 
 func fileServerWithCache(fs http.FileSystem, cacheDuration time.Duration) http.Handler {
 	server := http.FileServer(fs)

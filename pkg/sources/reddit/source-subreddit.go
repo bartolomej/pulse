@@ -19,7 +19,6 @@ type SourceSubreddit struct {
 	SortBy             string `json:"sort-by"`
 	TopPeriod          string `json:"top-period"`
 	Search             string `json:"search"`
-	Limit              int    `json:"limit"`
 	RequestURLTemplate string `json:"request-url-template"`
 	client             *reddit.Client
 	AppAuth            struct {
@@ -145,15 +144,17 @@ func (s *SourceSubreddit) fetchSubredditPosts(ctx context.Context) ([]*redditPos
 	var posts []*reddit.Post
 	var err error
 
+	limit := 10
+
 	opts := &reddit.ListOptions{
-		Limit: s.Limit,
+		Limit: limit,
 	}
 
 	if s.Search != "" {
 		searchOpts := &reddit.ListPostSearchOptions{
 			ListPostOptions: reddit.ListPostOptions{
 				ListOptions: reddit.ListOptions{
-					Limit: s.Limit,
+					Limit: limit,
 				},
 			},
 			Sort: s.SortBy,
@@ -168,7 +169,7 @@ func (s *SourceSubreddit) fetchSubredditPosts(ctx context.Context) ([]*redditPos
 		case "top":
 			topOpts := &reddit.ListPostOptions{
 				ListOptions: reddit.ListOptions{
-					Limit: s.Limit,
+					Limit: limit,
 				},
 				Time: s.TopPeriod,
 			}

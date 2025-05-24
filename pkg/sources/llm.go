@@ -1,8 +1,9 @@
-package widgets
+package sources
 
 import (
 	"context"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"strings"
 
 	"github.com/tmc/langchaingo/llms"
@@ -35,7 +36,7 @@ type completionResponse struct {
 }
 
 // filterFeed returns the IDs of feed entries that match the query
-func (llm *LLM) filterFeed(ctx context.Context, feed []feedEntry, query string) ([]feedMatch, error) {
+func (llm *LLM) filterFeed(ctx context.Context, feed []common.Activity, query string) ([]feedMatch, error) {
 	prompt := strings.Builder{}
 
 	prompt.WriteString(`
@@ -60,9 +61,9 @@ Always base the relevance score on how well the highlight connects the entry to 
 	prompt.WriteString(fmt.Sprintf("filter query: %s\n", query))
 
 	for _, entry := range feed {
-		prompt.WriteString(fmt.Sprintf("id: %s\n", entry.ID))
-		prompt.WriteString(fmt.Sprintf("title: %s\n", entry.Title))
-		prompt.WriteString(fmt.Sprintf("description: %s\n", entry.Description))
+		prompt.WriteString(fmt.Sprintf("id: %s\n", entry.UID()))
+		prompt.WriteString(fmt.Sprintf("title: %s\n", entry.Title()))
+		prompt.WriteString(fmt.Sprintf("description: %s\n", entry.Body()))
 		prompt.WriteString("\n")
 	}
 
