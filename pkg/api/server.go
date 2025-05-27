@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/glanceapp/glance/pkg/sources"
+	sourcescommon "github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/glanceapp/glance/pkg/widgets"
 	"github.com/glanceapp/glance/web"
 	"github.com/rs/zerolog"
@@ -138,6 +139,16 @@ func (s *Server) GetPage(w http.ResponseWriter, r *http.Request, params GetPageP
 	}
 }
 
+func (s *Server) ListAllActivities(w http.ResponseWriter, r *http.Request) {
+	out, err := s.registry.Activities()
+	if err != nil {
+		s.internalError(w, err, "list activities")
+		return
+	}
+
+	s.serializeRes(w, deserializeActivities(out))
+}
+
 func (s *Server) ListSources(w http.ResponseWriter, r *http.Request) {
 	out, err := s.registry.Sources()
 	if err != nil {
@@ -145,7 +156,7 @@ func (s *Server) ListSources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.serializeRes(w, out)
+	s.serializeRes(w, deserializeSources(out))
 }
 
 func (s *Server) CreateSource(w http.ResponseWriter, r *http.Request) {
@@ -156,19 +167,19 @@ func (s *Server) CreateSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	source, err := deserializeCreateSourceRequest(req)
+	out, err := deserializeCreateSourceRequest(req)
 	if err != nil {
 		s.badRequest(w, err, "deserialize request")
 		return
 	}
 
-	err = s.registry.Add(source)
+	err = s.registry.Add(out)
 	if err != nil {
 		s.internalError(w, err, "add source")
 		return
 	}
 
-	s.serializeRes(w, source)
+	s.serializeRes(w, deserializeSource(out))
 }
 
 func (s *Server) DeleteSource(w http.ResponseWriter, r *http.Request, uid string) {
@@ -182,13 +193,13 @@ func (s *Server) DeleteSource(w http.ResponseWriter, r *http.Request, uid string
 }
 
 func (s *Server) GetSource(w http.ResponseWriter, r *http.Request, uid string) {
-	source, err := s.registry.Source(uid)
+	out, err := s.registry.Source(uid)
 	if err != nil {
 		s.internalError(w, err, "remove source")
 		return
 	}
 
-	s.serializeRes(w, source)
+	s.serializeRes(w, deserializeSource(out))
 }
 
 func deserializeReq[Req any](r *http.Request, req *Req) error {
@@ -255,6 +266,46 @@ func deserializeCreateSourceRequest(req CreateSourceRequest) (sources.Source, er
 	}
 
 	return source, nil
+}
+
+func deserializeActivities(in []sourcescommon.Activity) []Activity {
+	out := make([]Activity, 0, len(in))
+
+	for _, e := range in {
+		out = append(out, deserializeActivity(e))
+	}
+
+	return out
+}
+
+func deserializeActivity(in sourcescommon.Activity) Activity {
+	return Activity{
+		Uid:       in.UID(),
+		SourceUid: in.SourceUID(),
+		Url:       in.URL(),
+		Title:     in.Title(),
+		Body:      in.Body(),
+		CreatedAt: in.CreatedAt(),
+	}
+}
+
+func deserializeSources(in []sources.Source) []Source {
+	out := make([]Source, 0, len(in))
+
+	for _, e := range in {
+		out = append(out, deserializeSource(e))
+	}
+
+	return out
+
+}
+
+func deserializeSource(in sources.Source) Source {
+	return Source{
+		Uid:  in.UID(),
+		Url:  in.URL(),
+		Name: in.Name(),
+	}
 }
 
 func fileServerWithCache(fs http.FileSystem, cacheDuration time.Duration) http.Handler {

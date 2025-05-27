@@ -76,6 +76,20 @@ paths:
         '404':
           description: Source not found
 
+  /sources/activities:
+    get:
+      summary: List all activities
+      operationId: listAllActivities
+      responses:
+        '200':
+          description: Activities list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Activity'
+
   /page:
     get:
       summary: Get page HTML
@@ -120,7 +134,6 @@ components:
         - uid
         - name
         - url
-        - type
       properties:
         uid:
           type: string
@@ -128,10 +141,6 @@ components:
           type: string
         url:
           type: string
-        type:
-          type: string
-        data:
-          type: object
 
     Activity:
       type: object
@@ -139,8 +148,10 @@ components:
         - uid
         - source_uid
         - title
+        - body
         - url
-        - published_at
+        - image_url
+        - created_at
       properties:
         uid:
           type: string
@@ -148,16 +159,14 @@ components:
           type: string
         title:
           type: string
+        body:
+          type: string
         url:
           type: string
-        published_at:
+          format: url
+        image_url:
+          type: string
+          format: url
+        created_at:
           type: string
           format: date-time
-        content:
-          type: string
-        author:
-          type: string
-        tags:
-          type: array
-          items:
-            type: string

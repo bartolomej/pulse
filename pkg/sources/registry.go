@@ -3,6 +3,7 @@ package sources
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/glanceapp/glance/pkg/sources/common"
@@ -104,9 +105,25 @@ func (r *Registry) Source(uid string) (Source, error) {
 	return s.Source, nil
 }
 
+func (r *Registry) Activities() ([]common.Activity, error) {
+	r.activitiesMutex.Lock()
+	defer r.activitiesMutex.Unlock()
+
+	matches := make([]common.Activity, 0)
+	for _, a := range r.activities {
+		matches = append(matches, a)
+	}
+
+	sort.Slice(matches, func(i, j int) bool {
+		return matches[i].CreatedAt().Before(matches[j].CreatedAt())
+	})
+
+	return matches, nil
+}
+
 func (r *Registry) ActivitiesBySource(sourceUID string) ([]common.Activity, error) {
-	r.sourcesMutex.Lock()
-	defer r.sourcesMutex.Unlock()
+	r.activitiesMutex.Lock()
+	defer r.activitiesMutex.Unlock()
 
 	matches := make([]common.Activity, 0)
 	for _, a := range r.activities {

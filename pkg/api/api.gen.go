@@ -8,9 +8,21 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
 )
+
+// Activity defines model for Activity.
+type Activity struct {
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"created_at"`
+	ImageUrl  string    `json:"image_url"`
+	SourceUid string    `json:"source_uid"`
+	Title     string    `json:"title"`
+	Uid       string    `json:"uid"`
+	Url       string    `json:"url"`
+}
 
 // CreateSourceRequest defines model for CreateSourceRequest.
 type CreateSourceRequest struct {
@@ -20,11 +32,9 @@ type CreateSourceRequest struct {
 
 // Source defines model for Source.
 type Source struct {
-	Data *map[string]interface{} `json:"data,omitempty"`
-	Name string                  `json:"name"`
-	Type string                  `json:"type"`
-	Uid  string                  `json:"uid"`
-	Url  string                  `json:"url"`
+	Name string `json:"name"`
+	Uid  string `json:"uid"`
+	Url  string `json:"url"`
 }
 
 // GetPageParams defines parameters for GetPage.
@@ -50,6 +60,9 @@ type ServerInterface interface {
 	// Create a new source
 	// (POST /sources)
 	CreateSource(w http.ResponseWriter, r *http.Request)
+	// List all activities
+	// (GET /sources/activities)
+	ListAllActivities(w http.ResponseWriter, r *http.Request)
 	// Delete source
 	// (DELETE /sources/{uid})
 	DeleteSource(w http.ResponseWriter, r *http.Request, uid string)
@@ -128,6 +141,20 @@ func (siw *ServerInterfaceWrapper) CreateSource(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateSource(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAllActivities operation middleware
+func (siw *ServerInterfaceWrapper) ListAllActivities(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAllActivities(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -310,6 +337,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/page", wrapper.GetPage)
 	m.HandleFunc("GET "+options.BaseURL+"/sources", wrapper.ListSources)
 	m.HandleFunc("POST "+options.BaseURL+"/sources", wrapper.CreateSource)
+	m.HandleFunc("GET "+options.BaseURL+"/sources/activities", wrapper.ListAllActivities)
 	m.HandleFunc("DELETE "+options.BaseURL+"/sources/{uid}", wrapper.DeleteSource)
 	m.HandleFunc("GET "+options.BaseURL+"/sources/{uid}", wrapper.GetSource)
 
