@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/glanceapp/glance/pkg/sources/common"
 	"os"
-	"sort"
 	"strings"
 	"time"
 
@@ -65,11 +64,16 @@ func (s *SourceRelease) Initialize() error {
 }
 
 type githubRelease struct {
-	raw *github.RepositoryRelease
+	raw       *github.RepositoryRelease
+	sourceUID string
 }
 
 func (a githubRelease) UID() string {
 	return fmt.Sprintf("%d", a.raw.GetID())
+}
+
+func (a githubRelease) SourceUID() string {
+	return a.sourceUID
 }
 
 func (a githubRelease) Title() string {
@@ -90,16 +94,6 @@ func (a githubRelease) ImageURL() string {
 
 func (a githubRelease) CreatedAt() time.Time {
 	return a.raw.GetPublishedAt().Time
-}
-
-type appReleaseList []githubRelease
-
-func (r appReleaseList) sortByNewest() appReleaseList {
-	sort.Slice(r, func(i, j int) bool {
-		return r[i].CreatedAt().After(r[j].CreatedAt())
-	})
-
-	return r
 }
 
 func (s *SourceRelease) fetchLatestGithubRelease(ctx context.Context) (*githubRelease, error) {
@@ -129,5 +123,5 @@ func (s *SourceRelease) fetchLatestGithubRelease(ctx context.Context) (*githubRe
 		return nil, err
 	}
 
-	return &githubRelease{raw: release}, nil
+	return &githubRelease{raw: release, sourceUID: s.UID()}, nil
 }

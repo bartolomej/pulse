@@ -47,7 +47,7 @@ func (s *SourceTag) Stream(ctx context.Context, feed chan<- common.Activity, err
 	}
 
 	for _, story := range stories {
-		feed <- &lobstersPost{raw: story}
+		feed <- &lobstersPost{raw: story, sourceUID: s.UID()}
 	}
 }
 

@@ -45,11 +45,16 @@ func (s *SourceSubreddit) URL() string {
 }
 
 type redditPost struct {
-	raw *reddit.Post
+	raw       *reddit.Post
+	sourceUID string
 }
 
 func (p *redditPost) UID() string {
 	return p.raw.ID
+}
+
+func (p *redditPost) SourceUID() string {
+	return p.sourceUID
 }
 
 func (p *redditPost) Title() string {
@@ -193,7 +198,7 @@ func (s *SourceSubreddit) fetchSubredditPosts(ctx context.Context) ([]*redditPos
 			continue
 		}
 
-		redditPosts = append(redditPosts, &redditPost{raw: post})
+		redditPosts = append(redditPosts, &redditPost{raw: post, sourceUID: s.UID()})
 	}
 
 	return redditPosts, nil

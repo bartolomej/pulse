@@ -2,24 +2,26 @@ package widgets
 
 import (
 	"bytes"
+	"github.com/glanceapp/glance/pkg/sources"
 	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/glanceapp/glance/web"
 	"html/template"
 )
 
 type widgetBase struct {
-	id             uint64
-	Typ            string `json:"typ"`
-	HideHeader     bool   `json:"hide_header"`
-	CSSClass       string `json:"css_class"`
-	CollapseAfter  int    `json:"collapse_after"`
+	id            uint64
+	Typ           string `json:"typ"`
+	HideHeader    bool   `json:"hide_header"`
+	CSSClass      string `json:"css_class"`
+	CollapseAfter int    `json:"collapse_after"`
+	// SourceID is the filter parameter for fetching activities.
+	SourceID       string `json:"source_id"`
 	Error          error
 	Notice         error
-	Feed           []common.Activity
 	templateBuffer bytes.Buffer
 }
 
-func newWidgetBase(id uint64, typ string, feed []common.Activity) *widgetBase {
+func newWidgetBase(id uint64, typ string) *widgetBase {
 	return &widgetBase{
 		id:             id,
 		Typ:            typ,
@@ -28,7 +30,6 @@ func newWidgetBase(id uint64, typ string, feed []common.Activity) *widgetBase {
 		Error:          nil,
 		CollapseAfter:  3,
 		Notice:         nil,
-		Feed:           feed,
 		templateBuffer: bytes.Buffer{},
 	}
 }
@@ -47,8 +48,15 @@ func (w *widgetBase) setHideHeader(value bool) {
 
 var widgetBaseContentTemplate = web.MustParseTemplate("widget-base-content.html", "widget-base.html")
 
-func (w *widgetBase) Render() template.HTML {
-	return w.renderTemplate(w, widgetBaseContentTemplate)
+type renderData struct {
+	*widgetBase
+	Activities []common.Activity
+}
+
+func (w *widgetBase) Render(registry *sources.Registry) template.HTML {
+	activities, err := registry.ActivitiesBySource(w.SourceID)
+	w.Error = err
+	return w.renderTemplate(renderData{w, activities}, widgetBaseContentTemplate)
 }
 
 func (w *widgetBase) Initialize() error {

@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/glanceapp/glance/pkg/server"
+	"github.com/glanceapp/glance/pkg/api"
+	"github.com/rs/zerolog"
 	"log"
+	"os"
 )
 
 func main() {
@@ -14,14 +16,13 @@ func main() {
 }
 
 func run() (err error) {
-	app, err := server.NewApplication()
+	logger := zerolog.New(os.Stdout)
+	server, err := api.NewServer(&logger, api.NewDefaultConfig())
 	if err != nil {
-		return fmt.Errorf("create application: %w", err)
+		return fmt.Errorf("create server: %w", err)
 	}
 
-	startServer, _ := app.Server()
-
-	if err := startServer(); err != nil {
+	if err := server.Start(); err != nil {
 		log.Printf("Failed to start server: %v", err)
 	}
 

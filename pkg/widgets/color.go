@@ -30,14 +30,14 @@ func (c *HSLColor) ToHex() string {
 	return hslToHex(c.H, c.S, c.L)
 }
 
-func (c1 *HSLColor) SameAs(c2 *HSLColor) bool {
-	if c1 == nil && c2 == nil {
+func (c *HSLColor) SameAs(c1 *HSLColor) bool {
+	if c == nil && c1 == nil {
 		return true
 	}
-	if c1 == nil || c2 == nil {
+	if c == nil || c1 == nil {
 		return false
 	}
-	return c1.H == c2.H && c1.S == c2.S && c1.L == c2.L
+	return c.H == c1.H && c.S == c1.S && c.L == c1.L
 }
 
 func (c *HSLColor) UnmarshalYAML(node *yaml.Node) error {

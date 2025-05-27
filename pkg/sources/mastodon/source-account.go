@@ -83,7 +83,7 @@ func (s *SourceAccount) fetchAccountPosts(ctx context.Context, accountID mastodo
 
 	posts := make([]*mastodonPost, len(statuses))
 	for i, status := range statuses {
-		posts[i] = &mastodonPost{raw: status}
+		posts[i] = &mastodonPost{raw: status, sourceUID: s.UID()}
 	}
 
 	return posts, nil

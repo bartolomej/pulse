@@ -2,21 +2,21 @@ package widgets
 
 import (
 	"errors"
-	"github.com/glanceapp/glance/pkg/sources/common"
+	"github.com/glanceapp/glance/pkg/sources"
 	"github.com/glanceapp/glance/web"
 	"html/template"
 )
 
-var groupWidgetTemplate = web.MustParseTemplate("group.html", "widget-base.html")
+var groupWidgetTemplate = web.MustParseTemplate("widget-group.html", "widget-base.html")
 
 type groupWidget struct {
 	widgetBase          `yaml:",inline"`
 	containerWidgetBase `yaml:",inline"`
 }
 
-func newWidgetGroup(id uint64, typ string, feed []common.Activity) *groupWidget {
+func newWidgetGroup(id uint64, typ string) *groupWidget {
 	return &groupWidget{
-		widgetBase:          newWidgetBase(id, typ, feed),
+		widgetBase:          *newWidgetBase(id, typ),
 		containerWidgetBase: containerWidgetBase{},
 	}
 }
@@ -43,6 +43,6 @@ func (w *groupWidget) Initialize() error {
 	return nil
 }
 
-func (w *groupWidget) Render() template.HTML {
+func (w *groupWidget) Render(_ *sources.Registry) template.HTML {
 	return w.renderTemplate(w, groupWidgetTemplate)
 }

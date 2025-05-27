@@ -1,12 +1,12 @@
 package widgets
 
 import (
-	"github.com/glanceapp/glance/pkg/sources/common"
+	"github.com/glanceapp/glance/pkg/sources"
 	"github.com/glanceapp/glance/web"
 	"html/template"
 )
 
-var splitColumnWidgetTemplate = web.MustParseTemplate("split-column.html", "widget-base.html")
+var splitColumnWidgetTemplate = web.MustParseTemplate("widget-split-column.html", "widget-base.html")
 
 type splitColumnWidget struct {
 	widgetBase          `yaml:",inline"`
@@ -14,9 +14,9 @@ type splitColumnWidget struct {
 	MaxColumns          int `yaml:"max-columns"`
 }
 
-func newWidgetSplitColumn(id uint64, typ string, feed []common.Activity) *splitColumnWidget {
+func newWidgetSplitColumn(id uint64, typ string) *splitColumnWidget {
 	return &splitColumnWidget{
-		widgetBase:          newWidgetBase(id, typ, feed),
+		widgetBase:          *newWidgetBase(id, typ),
 		containerWidgetBase: containerWidgetBase{},
 		MaxColumns:          2,
 	}
@@ -37,6 +37,6 @@ func (w *splitColumnWidget) Initialize() error {
 	return nil
 }
 
-func (w *splitColumnWidget) Render() template.HTML {
+func (w *splitColumnWidget) Render(_ *sources.Registry) template.HTML {
 	return w.renderTemplate(w, splitColumnWidgetTemplate)
 }

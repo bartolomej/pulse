@@ -13,19 +13,32 @@ var (
 	themePresetPreviewTemplate = web.MustParseTemplate("theme-preset-preview.html")
 )
 
-type Theme struct {
-	BackgroundColor          *HSLColor `yaml:"background-color"`
-	PrimaryColor             *HSLColor `yaml:"primary-color"`
-	PositiveColor            *HSLColor `yaml:"positive-color"`
-	NegativeColor            *HSLColor `yaml:"negative-color"`
-	Light                    bool      `yaml:"light"`
-	ContrastMultiplier       float32   `yaml:"contrast-multiplier"`
-	TextSaturationMultiplier float32   `yaml:"text-saturation-multiplier"`
+func DefaultThemePresets() []Theme {
+	return []Theme{
+		{
+			Key:                      "default",
+			Light:                    true,
+			BackgroundColor:          &HSLColor{H: 240, S: 13, L: 95},
+			PrimaryColor:             &HSLColor{H: 230, S: 100, L: 30},
+			NegativeColor:            &HSLColor{S: 70, L: 50},
+			ContrastMultiplier:       1.3,
+			TextSaturationMultiplier: 0.5,
+		},
+	}
+}
 
-	Key                  string        `yaml:"-"`
-	CSS                  template.CSS  `yaml:"-"`
-	PreviewHTML          template.HTML `yaml:"-"`
-	BackgroundColorAsHex string        `yaml:"-"`
+type Theme struct {
+	BackgroundColor          *HSLColor
+	PrimaryColor             *HSLColor
+	PositiveColor            *HSLColor
+	NegativeColor            *HSLColor
+	Light                    bool
+	ContrastMultiplier       float32
+	TextSaturationMultiplier float32
+	Key                      string
+	CSS                      template.CSS
+	PreviewHTML              template.HTML
+	BackgroundColorAsHex     string
 }
 
 var whitespaceAtBeginningOfLinePattern = regexp.MustCompile(`(?m)^\s+`)
@@ -52,32 +65,32 @@ func (t *Theme) Init() error {
 	return nil
 }
 
-func (t1 *Theme) SameAs(t2 *Theme) bool {
-	if t1 == nil && t2 == nil {
+func (t *Theme) SameAs(t1 *Theme) bool {
+	if t == nil && t1 == nil {
 		return true
 	}
-	if t1 == nil || t2 == nil {
+	if t == nil || t1 == nil {
 		return false
 	}
-	if t1.Light != t2.Light {
+	if t.Light != t1.Light {
 		return false
 	}
-	if t1.ContrastMultiplier != t2.ContrastMultiplier {
+	if t.ContrastMultiplier != t1.ContrastMultiplier {
 		return false
 	}
-	if t1.TextSaturationMultiplier != t2.TextSaturationMultiplier {
+	if t.TextSaturationMultiplier != t1.TextSaturationMultiplier {
 		return false
 	}
-	if t1.BackgroundColor != t2.BackgroundColor {
+	if t.BackgroundColor != t1.BackgroundColor {
 		return false
 	}
-	if t1.PrimaryColor != t2.PrimaryColor {
+	if t.PrimaryColor != t1.PrimaryColor {
 		return false
 	}
-	if t1.PositiveColor != t2.PositiveColor {
+	if t.PositiveColor != t1.PositiveColor {
 		return false
 	}
-	if t1.NegativeColor != t2.NegativeColor {
+	if t.NegativeColor != t1.NegativeColor {
 		return false
 	}
 	return true

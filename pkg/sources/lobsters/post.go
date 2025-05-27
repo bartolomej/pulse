@@ -8,11 +8,16 @@ import (
 )
 
 type lobstersPost struct {
-	raw *Story
+	raw       *Story
+	sourceUID string
 }
 
 func (p *lobstersPost) UID() string {
 	return p.raw.ID
+}
+
+func (p *lobstersPost) SourceUID() string {
+	return p.sourceUID
 }
 
 func (p *lobstersPost) Title() string {

@@ -2,14 +2,14 @@ package widgets
 
 import (
 	"errors"
-	"github.com/glanceapp/glance/pkg/sources/common"
+	"github.com/glanceapp/glance/pkg/sources"
 	"html/template"
 	"sync/atomic"
 )
 
 var widgetIDCounter atomic.Uint64
 
-func NewWidget(widgetType string, feed []common.Activity) (Widget, error) {
+func NewWidget(widgetType string) (Widget, error) {
 	if widgetType == "" {
 		return nil, errors.New("widget 'type' property is empty or not specified")
 	}
@@ -20,11 +20,11 @@ func NewWidget(widgetType string, feed []common.Activity) (Widget, error) {
 
 	switch widgetType {
 	case "group":
-		w = newWidgetGroup(id, widgetType, feed)
+		w = newWidgetGroup(id, widgetType)
 	case "split-column":
-		w = newWidgetSplitColumn(id, widgetType, feed)
+		w = newWidgetSplitColumn(id, widgetType)
 	default:
-		w = newWidgetBase(id, widgetType, feed)
+		w = newWidgetBase(id, widgetType)
 	}
 
 	return w, nil
@@ -32,7 +32,7 @@ func NewWidget(widgetType string, feed []common.Activity) (Widget, error) {
 
 type Widget interface {
 	// Render is called within templates.
-	Render() template.HTML
+	Render(registry *sources.Registry) template.HTML
 	// Type is called within templates.
 	Type() string
 	// ID is called within templates.

@@ -87,13 +87,14 @@ func (s *SourceFeed) Stream(ctx context.Context, feed chan<- common.Activity, er
 	}
 
 	for _, item := range rssFeed.Items {
-		feed <- &rssFeedItem{raw: item, feedLink: s.FeedURL}
+		feed <- &rssFeedItem{raw: item, feedLink: s.FeedURL, sourceUID: s.UID()}
 	}
 }
 
 type rssFeedItem struct {
-	raw      *gofeed.Item
-	feedLink string
+	raw       *gofeed.Item
+	feedLink  string
+	sourceUID string
 }
 
 func (i *rssFeedItem) UID() string {
@@ -101,6 +102,10 @@ func (i *rssFeedItem) UID() string {
 		return i.raw.GUID
 	}
 	return i.URL()
+}
+
+func (i *rssFeedItem) SourceUID() string {
+	return i.sourceUID
 }
 
 func (i *rssFeedItem) Title() string {

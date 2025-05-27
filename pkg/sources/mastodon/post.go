@@ -11,11 +11,16 @@ import (
 )
 
 type mastodonPost struct {
-	raw *mastodon.Status
+	raw       *mastodon.Status
+	sourceUID string
 }
 
 func (p *mastodonPost) UID() string {
 	return string(p.raw.ID)
+}
+
+func (p *mastodonPost) SourceUID() string {
+	return p.sourceUID
 }
 
 func (p *mastodonPost) Title() string {

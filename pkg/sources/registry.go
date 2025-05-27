@@ -50,6 +50,10 @@ func (r *Registry) Add(source Source) error {
 		return fmt.Errorf("source '%s' already exists", source.UID())
 	}
 
+	if err := source.Initialize(); err != nil {
+		return fmt.Errorf("initialize source: %w", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go source.Stream(ctx, r.activityQueue, r.errorQueue)
@@ -77,7 +81,7 @@ func (r *Registry) Remove(uid string) error {
 	return nil
 }
 
-func (r *Registry) List() ([]Source, error) {
+func (r *Registry) Sources() ([]Source, error) {
 	r.sourcesMutex.Lock()
 	defer r.sourcesMutex.Unlock()
 
@@ -86,6 +90,32 @@ func (r *Registry) List() ([]Source, error) {
 		out = append(out, s.Source)
 	}
 	return out, nil
+}
+
+func (r *Registry) Source(uid string) (Source, error) {
+	r.sourcesMutex.Lock()
+	defer r.sourcesMutex.Unlock()
+
+	s, ok := r.sources[uid]
+	if !ok {
+		return nil, fmt.Errorf("source '%s' not found", uid)
+	}
+
+	return s.Source, nil
+}
+
+func (r *Registry) ActivitiesBySource(sourceUID string) ([]common.Activity, error) {
+	r.sourcesMutex.Lock()
+	defer r.sourcesMutex.Unlock()
+
+	matches := make([]common.Activity, 0)
+	for _, a := range r.activities {
+		if a.SourceUID() == sourceUID {
+			matches = append(matches, a)
+		}
+	}
+
+	return matches, nil
 }
 
 func (r *Registry) startWorkers(nWorkers int) {

@@ -33,7 +33,7 @@ func (s *SourceWebsiteChange) URL() string {
 }
 
 func (s *SourceWebsiteChange) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
-	initial, err := fetchWatchFromChangeDetection(s.InstanceURL, s.WatchUUID, s.Token)
+	initial, err := s.fetchWatchFromChangeDetection()
 
 	if err != nil {
 		errs <- err
@@ -58,13 +58,18 @@ func (s *SourceWebsiteChange) Initialize() error {
 type websiteChange struct {
 	title        string
 	url          string
-	LastChanged  time.Time
-	DiffURL      string
-	PreviousHash string
+	lastChanged  time.Time
+	diffURL      string
+	previousHash string
+	sourceUID    string
+}
+
+func (c websiteChange) SourceUID() string {
+	return c.sourceUID
 }
 
 func (c websiteChange) UID() string {
-	return fmt.Sprintf("%s-%d", c.url, c.LastChanged.Unix())
+	return fmt.Sprintf("%s-%d", c.url, c.lastChanged.Unix())
 }
 
 func (c websiteChange) Title() string {
@@ -85,14 +90,14 @@ func (c websiteChange) ImageURL() string {
 }
 
 func (c websiteChange) CreatedAt() time.Time {
-	return c.LastChanged
+	return c.lastChanged
 }
 
 type changeDetectionWatchList []websiteChange
 
 func (r changeDetectionWatchList) sortByNewest() changeDetectionWatchList {
 	sort.Slice(r, func(i, j int) bool {
-		return r[i].LastChanged.After(r[j].LastChanged)
+		return r[i].lastChanged.After(r[j].lastChanged)
 	})
 
 	return r
@@ -106,18 +111,18 @@ type changeDetectionWatchResponseJson struct {
 	PreviousHash string `json:"previous_hash"`
 }
 
-func fetchWatchFromChangeDetection(instanceURL string, watchUUID string, token string) (websiteChange, error) {
+func (s *SourceWebsiteChange) fetchWatchFromChangeDetection() (websiteChange, error) {
 	req, err := http.NewRequest(
 		"GET",
-		fmt.Sprintf("%s/api/v1/watch/%s", instanceURL, watchUUID),
+		fmt.Sprintf("%s/api/v1/watch/%s", s.InstanceURL, s.WatchUUID),
 		nil,
 	)
 	if err != nil {
 		return websiteChange{}, err
 	}
 
-	if token != "" {
-		req.Header.Add("X-API-Key", token)
+	if s.Token != "" {
+		req.Header.Add("X-API-Key", s.Token)
 	}
 
 	response, err := common.DecodeJSONFromRequest[changeDetectionWatchResponseJson](common.DefaultHTTPClient, req)
@@ -128,8 +133,9 @@ func fetchWatchFromChangeDetection(instanceURL string, watchUUID string, token s
 	return websiteChange{
 		title:        response.Title,
 		url:          response.URL,
-		LastChanged:  common.ParseRFC3339Time(response.LastChanged),
-		DiffURL:      response.DiffURL,
-		PreviousHash: response.PreviousHash,
+		lastChanged:  common.ParseRFC3339Time(response.LastChanged),
+		diffURL:      response.DiffURL,
+		previousHash: response.PreviousHash,
+		sourceUID:    s.UID(),
 	}, nil
 }

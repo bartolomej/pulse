@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/glanceapp/glance/pkg/sources/common"
 	"os"
-	"sort"
 	"strings"
 	"time"
 
@@ -35,11 +34,16 @@ func (s *SourceIssues) URL() string {
 }
 
 type issueActivity struct {
-	raw *github.Issue
+	raw       *github.Issue
+	sourceUID string
 }
 
 func (i issueActivity) UID() string {
 	return fmt.Sprintf("issue-%d", i.raw.GetNumber())
+}
+
+func (i issueActivity) SourceUID() string {
+	return i.sourceUID
 }
 
 func (i issueActivity) Title() string {
@@ -62,15 +66,6 @@ func (i issueActivity) CreatedAt() time.Time {
 	return i.raw.GetUpdatedAt().Time
 }
 
-type issueActivityList []issueActivity
-
-func (i issueActivityList) sortByNewest() issueActivityList {
-	sort.Slice(i, func(a, b int) bool {
-		return i[a].CreatedAt().After(i[b].CreatedAt())
-	})
-	return i
-}
-
 func (s *SourceIssues) Initialize() error {
 	token := s.Token
 	if token == "" {
@@ -87,7 +82,7 @@ func (s *SourceIssues) Initialize() error {
 }
 
 func (s *SourceIssues) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
-	activities, err := fetchIssueActivities(ctx, s.client, s.Repository)
+	activities, err := s.fetchIssueActivities(ctx, s.client, s.Repository)
 
 	if err != nil {
 		errs <- err
@@ -99,17 +94,7 @@ func (s *SourceIssues) Stream(ctx context.Context, feed chan<- common.Activity, 
 	}
 }
 
-func fetchIssueActivities(ctx context.Context, client *github.Client, repository string) (issueActivityList, error) {
-	activities, err := fetchIssueActivityTask(ctx, client, repository)
-	if err != nil {
-		return nil, err
-	}
-
-	activities.sortByNewest()
-	return activities, nil
-}
-
-func fetchIssueActivityTask(ctx context.Context, client *github.Client, repository string) (issueActivityList, error) {
+func (s *SourceIssues) fetchIssueActivities(ctx context.Context, client *github.Client, repository string) ([]issueActivity, error) {
 	activities := make([]issueActivity, 0)
 
 	parts := strings.Split(repository, "/")
@@ -129,7 +114,7 @@ func fetchIssueActivityTask(ctx context.Context, client *github.Client, reposito
 	}
 
 	for _, issue := range issues {
-		activities = append(activities, issueActivity{raw: issue})
+		activities = append(activities, issueActivity{raw: issue, sourceUID: s.UID()})
 	}
 
 	return activities, nil

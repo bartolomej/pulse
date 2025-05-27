@@ -34,11 +34,16 @@ func (s *SourcePosts) URL() string {
 }
 
 type hackerNewsPost struct {
-	raw *gohn.Item
+	raw       *gohn.Item
+	sourceUID string
 }
 
 func (p *hackerNewsPost) UID() string {
 	return fmt.Sprintf("%d", *p.raw.ID)
+}
+
+func (p *hackerNewsPost) SourceUID() string {
+	return p.sourceUID
 }
 
 func (p *hackerNewsPost) Title() string {
@@ -112,6 +117,8 @@ func (s *SourcePosts) fetchHackerNewsPosts(ctx context.Context) ([]*hackerNewsPo
 		storyIDs, err = s.client.Stories.GetNewIDs(ctx)
 	case "best":
 		storyIDs, err = s.client.Stories.GetBestIDs(ctx)
+	default:
+		return nil, fmt.Errorf("invalid feed name: %s", s.FeedName)
 	}
 
 	if err != nil {
@@ -138,7 +145,7 @@ func (s *SourcePosts) fetchHackerNewsPosts(ctx context.Context) ([]*hackerNewsPo
 			continue
 		}
 
-		posts = append(posts, &hackerNewsPost{raw: story})
+		posts = append(posts, &hackerNewsPost{raw: story, sourceUID: s.UID()})
 	}
 
 	if len(posts) == 0 {

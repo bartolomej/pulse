@@ -49,7 +49,7 @@ func (s *SourceTag) Stream(ctx context.Context, feed chan<- common.Activity, err
 	})
 
 	limit := 15
-	posts, err := fetchHashtagPosts(client, s.Tag, limit)
+	posts, err := s.fetchHashtagPosts(client, limit)
 	if err != nil {
 		errs <- fmt.Errorf("failed to fetch posts: %w", err)
 		return
@@ -60,8 +60,8 @@ func (s *SourceTag) Stream(ctx context.Context, feed chan<- common.Activity, err
 	}
 }
 
-func fetchHashtagPosts(client *mastodon.Client, hashtag string, limit int) ([]*mastodonPost, error) {
-	statuses, err := client.GetTimelineHashtag(context.Background(), hashtag, false, &mastodon.Pagination{
+func (s *SourceTag) fetchHashtagPosts(client *mastodon.Client, limit int) ([]*mastodonPost, error) {
+	statuses, err := client.GetTimelineHashtag(context.Background(), s.Tag, false, &mastodon.Pagination{
 		Limit: int64(limit),
 	})
 	if err != nil {
@@ -70,7 +70,7 @@ func fetchHashtagPosts(client *mastodon.Client, hashtag string, limit int) ([]*m
 
 	posts := make([]*mastodonPost, len(statuses))
 	for i, status := range statuses {
-		posts[i] = &mastodonPost{raw: status}
+		posts[i] = &mastodonPost{raw: status, sourceUID: s.UID()}
 	}
 
 	return posts, nil
