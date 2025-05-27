@@ -21,7 +21,7 @@ import (
 const StaticAssetsCacheDuration = 24 * time.Hour
 
 var (
-	pageTemplate        = web.MustParseTemplate("page.html", "document.html", "footer.html")
+	pageTemplate        = web.MustParseTemplate("page.html", "document.html", "footer.html", "page-content.html")
 	pageContentTemplate = web.MustParseTemplate("page-content.html")
 )
 
@@ -97,8 +97,10 @@ func (s *Server) Stop() error {
 }
 
 type templateData struct {
+	Config         *Config
 	Page           *widgets.Page
-	Theme          *widgets.Theme
+	Theme          widgets.Theme
+	ThemePresets   []widgets.Theme
 	SourceRegistry *sources.Registry
 	FilterPrompt   string
 }
@@ -120,14 +122,18 @@ func (s *Server) GetPage(w http.ResponseWriter, r *http.Request, params GetPageP
 		filterPrompt = *params.FilterPrompt
 	}
 
+	themePresets := widgets.DefaultThemePresets()
 	data := templateData{
-		Page:         page,
-		Theme:        &widgets.DefaultThemePresets()[0],
-		FilterPrompt: filterPrompt,
+		Page:           page,
+		Config:         &s.config,
+		Theme:          themePresets[0],
+		ThemePresets:   themePresets,
+		FilterPrompt:   filterPrompt,
+		SourceRegistry: s.registry,
 	}
 
 	var responseBytes bytes.Buffer
-	err = pageContentTemplate.Execute(&responseBytes, data)
+	err = pageTemplate.Execute(&responseBytes, data)
 	if err != nil {
 		s.internalError(w, err, "execute template")
 		return

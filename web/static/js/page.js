@@ -1,23 +1,6 @@
-import { setupPopovers } from './popover.js';
 import { setupMasonries } from './masonry.js';
 import { throttledDebounce, isElementVisible, openURLInNewTab } from './utils.js';
 import { elem, find, findAll } from './templating.js';
-
-async function fetchPageContent(pageData) {
-    // TODO: handle non 200 status codes/time outs
-    // TODO: add retries
-    const urlParams = new URLSearchParams(window.location.search);
-    const reqParams = new URLSearchParams();
-
-    if (urlParams.has("filter")) {
-        reqParams.set("filter", urlParams.get("filter"));
-    }
-
-    const response = await fetch(`${pageData.baseURL}/api/pages/${pageData.slug}/content/?${reqParams.toString()}`);
-    const content = await response.text();
-
-    return content;
-}
 
 function setupCarousels() {
     const carouselElements = document.getElementsByClassName("carousel-container");
@@ -594,14 +577,8 @@ async function setupPage() {
     initThemeSwitcher();
 
     const pageElement = document.getElementById("page");
-    const pageContentElement = document.getElementById("page-content");
-    const pageContent = await fetchPageContent(pageData);
-
-    pageContentElement.innerHTML = pageContent;
 
     try {
-        setupPopovers();
-        setupClocks()
         setupCarousels();
         setupSearchBoxes();
         setupCollapsibleLists();

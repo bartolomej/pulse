@@ -1,7 +1,6 @@
 package widgets
 
 import (
-	"errors"
 	"github.com/glanceapp/glance/pkg/sources"
 	"html/template"
 	"sync/atomic"
@@ -10,10 +9,6 @@ import (
 var widgetIDCounter atomic.Uint64
 
 func NewWidget(widgetType string) (Widget, error) {
-	if widgetType == "" {
-		return nil, errors.New("widget 'type' property is empty or not specified")
-	}
-
 	id := widgetIDCounter.Add(1)
 
 	var w Widget

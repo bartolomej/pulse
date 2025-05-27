@@ -9,8 +9,7 @@ import (
 )
 
 var (
-	themeStyleTemplate         = web.MustParseTemplate("theme-style.gotmpl")
-	themePresetPreviewTemplate = web.MustParseTemplate("theme-preset-preview.html")
+	themeStyleTemplate = web.MustParseTemplate("theme-style.gotmpl")
 )
 
 func DefaultThemePresets() []Theme {
@@ -37,7 +36,6 @@ type Theme struct {
 	TextSaturationMultiplier float32
 	Key                      string
 	CSS                      template.CSS
-	PreviewHTML              template.HTML
 	BackgroundColorAsHex     string
 }
 
@@ -49,12 +47,6 @@ func (t *Theme) Init() error {
 		return fmt.Errorf("compiling theme style: %v", err)
 	}
 	t.CSS = template.CSS(whitespaceAtBeginningOfLinePattern.ReplaceAllString(css, ""))
-
-	previewHTML, err := executeTemplateToString(themePresetPreviewTemplate, t)
-	if err != nil {
-		return fmt.Errorf("compiling theme preview: %v", err)
-	}
-	t.PreviewHTML = template.HTML(previewHTML)
 
 	if t.BackgroundColor != nil {
 		t.BackgroundColorAsHex = t.BackgroundColor.ToHex()

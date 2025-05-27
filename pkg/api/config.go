@@ -33,7 +33,7 @@ func NewDefaultConfig() Config {
 		createdAt:  time.Now(),
 	}
 
-	c.FaviconURL = c.staticAssetPath("favicon.png")
+	c.FaviconURL = c.StaticAssetPath("favicon.png")
 
 	return c
 }
@@ -54,11 +54,11 @@ func (c *Config) resolveUserDefinedAssetPath(path string) string {
 	return path
 }
 
-func (c *Config) staticAssetPath(asset string) string {
-	return c.BaseURL + "/static/" + web.StaticFSHash + "/" + asset
+func (c *Config) StaticAssetPath(asset string) string {
+	return c.BaseURL + "static/" + web.StaticFSHash + "/" + asset
 }
 
-func (c *Config) versionedAssetPath(asset string) string {
+func (c *Config) VersionedAssetPath(asset string) string {
 	return c.BaseURL + asset +
 		"?v=" + strconv.FormatInt(c.createdAt.Unix(), 10)
 }

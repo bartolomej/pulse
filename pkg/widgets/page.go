@@ -12,8 +12,6 @@ type Page struct {
 	Slug                   string   `json:"slug"`
 	Width                  string   `json:"width"`
 	DesktopNavigationWidth string   `json:"desktop_navigation_width"`
-	ShowMobileHeader       bool     `json:"show_mobile_header"`
-	HideDesktopNavigation  bool     `json:"hide_desktop_navigation"`
 	CenterVertically       bool     `json:"center_vertically"`
 	HeadWidgets            []Widget `json:"head_widgets"`
 	Columns                []struct {
@@ -126,4 +124,87 @@ func titleToSlug(s string) string {
 	s = strings.Trim(s, "-")
 
 	return s
+}
+
+type rawPage struct {
+	Title                  string            `json:"name"`
+	Slug                   string            `json:"slug"`
+	Width                  string            `json:"width"`
+	DesktopNavigationWidth string            `json:"desktop_navigation_width"`
+	ShowMobileHeader       bool              `json:"show_mobile_header"`
+	HideDesktopNavigation  bool              `json:"hide_desktop_navigation"`
+	CenterVertically       bool              `json:"center_vertically"`
+	HeadWidgets            []json.RawMessage `json:"head_widgets"`
+	Columns                []struct {
+		Size    string            `json:"size"`
+		Widgets []json.RawMessage `json:"widgets"`
+	} `json:"columns"`
+}
+
+func (page *Page) UnmarshalJSON(data []byte) error {
+	var raw rawPage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	page.Title = raw.Title
+	page.Slug = raw.Slug
+	page.Width = raw.Width
+	page.DesktopNavigationWidth = raw.DesktopNavigationWidth
+	page.CenterVertically = raw.CenterVertically
+
+	headWidgets, err := unmarshalWidgets(raw.HeadWidgets)
+	if err != nil {
+		return fmt.Errorf("unmarshal head widgets: %v", err)
+	}
+	page.HeadWidgets = headWidgets
+
+	page.Columns = make([]struct {
+		Size    string   `json:"size"`
+		Widgets []Widget `json:"widgets"`
+	}, len(raw.Columns))
+
+	for i, rawColumn := range raw.Columns {
+		page.Columns[i].Size = rawColumn.Size
+		widgets, err := unmarshalWidgets(rawColumn.Widgets)
+		if err != nil {
+			return fmt.Errorf("unmarshal column %d widgets: %v", i, err)
+		}
+		page.Columns[i].Widgets = widgets
+	}
+
+	return nil
+}
+
+func unmarshalWidgets(data []json.RawMessage) ([]Widget, error) {
+	widgets := make([]Widget, len(data))
+	for i, rawWidget := range data {
+		widget, err := unmarshalWidget(rawWidget)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal widget %d: %v", i, err)
+		}
+		widgets[i] = widget
+	}
+	return widgets, nil
+}
+
+func unmarshalWidget(data json.RawMessage) (Widget, error) {
+	var base struct {
+		Type string `json:"type"`
+	}
+
+	if err := json.Unmarshal(data, &base); err != nil {
+		return nil, fmt.Errorf("unmarshal widget type: %v", err)
+	}
+
+	widget, err := NewWidget(base.Type)
+	if err != nil {
+		return nil, fmt.Errorf("create widget: %v", err)
+	}
+
+	if err := json.Unmarshal(data, widget); err != nil {
+		return nil, fmt.Errorf("unmarshal widget data: %v", err)
+	}
+
+	return widget, nil
 }

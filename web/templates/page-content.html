@@ -1,11 +1,9 @@
-{{ if .Page.ShowMobileHeader }}
-<div class="mobile-reachability-header">{{ .Page.Title }}</div>
-{{ end }}
+<div class="page-title">{{ .Page.Title }}</div>
 
 {{ if .Page.HeadWidgets }}
 <div class="head-widgets">
     {{- range .Page.HeadWidgets }}
-    {{- .Render }}
+    {{- .Render $.SourceRegistry }}
     {{- end }}
 </div>
 {{ end }}
