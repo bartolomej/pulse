@@ -64,8 +64,9 @@ func (s *SourceRelease) Initialize() error {
 }
 
 type githubRelease struct {
-	raw       *github.RepositoryRelease
-	sourceUID string
+	repository string
+	raw        *github.RepositoryRelease
+	sourceUID  string
 }
 
 func (a githubRelease) UID() string {
@@ -89,7 +90,12 @@ func (a githubRelease) URL() string {
 }
 
 func (a githubRelease) ImageURL() string {
-	return ""
+	return fmt.Sprintf(
+		"https://opengraph.githubassets.com/%d/%s/releases/tag/%s",
+		a.raw.CreatedAt.Unix(),
+		a.repository,
+		*a.raw.TagName,
+	)
 }
 
 func (a githubRelease) CreatedAt() time.Time {
@@ -123,5 +129,9 @@ func (s *SourceRelease) fetchLatestGithubRelease(ctx context.Context) (*githubRe
 		return nil, err
 	}
 
-	return &githubRelease{raw: release, sourceUID: s.UID()}, nil
+	return &githubRelease{
+		raw:        release,
+		repository: s.Repository,
+		sourceUID:  s.UID(),
+	}, nil
 }

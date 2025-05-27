@@ -8,14 +8,6 @@
 </div>
 {{ end }}
 
-<div class="page-filter-bar">
-  <form id="filter-form" class="filter-form">
-    <textarea id="filter-input" name="filter" placeholder="Filter prompt...">{{ .FilterPrompt }}</textarea>
-    <br />
-    <button type="submit">Apply</button>
-  </form>
-</div>
-
 <div class="page-columns">
 {{- range .Page.Columns }}
     <div class="page-column page-column-{{ .Size }}">

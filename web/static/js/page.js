@@ -603,20 +603,6 @@ async function setupPage() {
             document.body.classList.add("page-columns-transitioned");
         }, 300);
     }
-
-    if (document.getElementById('filter-form')) {
-        document.getElementById('filter-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const filter = document.getElementById('filter-input').value.trim();
-            const url = new URL(window.location.href);
-            if (filter) {
-                url.searchParams.set('filter', filter);
-            } else {
-                url.searchParams.delete('filter');
-            }
-            window.location.href = url.toString();
-        });
-    }
 }
 
 setupPage();

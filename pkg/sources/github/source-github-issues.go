@@ -34,8 +34,9 @@ func (s *SourceIssues) URL() string {
 }
 
 type issueActivity struct {
-	raw       *github.Issue
-	sourceUID string
+	repository string
+	raw        *github.Issue
+	sourceUID  string
 }
 
 func (i issueActivity) UID() string {
@@ -59,7 +60,12 @@ func (i issueActivity) URL() string {
 }
 
 func (i issueActivity) ImageURL() string {
-	return ""
+	return fmt.Sprintf(
+		"https://opengraph.githubassets.com/%d/%s/issues/%d",
+		i.raw.UpdatedAt.Unix(),
+		i.repository,
+		*i.raw.Number,
+	)
 }
 
 func (i issueActivity) CreatedAt() time.Time {
@@ -114,7 +120,11 @@ func (s *SourceIssues) fetchIssueActivities(ctx context.Context, client *github.
 	}
 
 	for _, issue := range issues {
-		activities = append(activities, issueActivity{raw: issue, sourceUID: s.UID()})
+		activities = append(activities, issueActivity{
+			raw:        issue,
+			sourceUID:  s.UID(),
+			repository: s.Repository,
+		})
 	}
 
 	return activities, nil
