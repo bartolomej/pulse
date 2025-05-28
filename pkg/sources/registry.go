@@ -11,10 +11,9 @@ import (
 )
 
 type Registry struct {
-	sources         map[string]cancelableSource
-	sourcesMutex    sync.Mutex
-	activities      map[string]DecoratedActivity
-	activitiesMutex sync.Mutex
+	sources      map[string]cancelableSource
+	sourcesMutex sync.Mutex
+	activityRepo activityStore
 
 	activityQueue chan common.Activity
 	errorQueue    chan error
@@ -24,13 +23,21 @@ type Registry struct {
 	summarizer summarizer
 }
 
-type summarizer interface {
-	Summarize(ctx context.Context, activity common.Activity) (*common.ActivitySummary, error)
+type sourceStore interface {
+	Add(source Source) error
+	Remove(uid string) error
+	List() ([]Source, error)
+	GetByID(uid string) (Source, error)
 }
 
-type DecoratedActivity struct {
-	common.Activity
-	Summary *common.ActivitySummary
+type activityStore interface {
+	Add(activity common.DecoratedActivity) error
+	Remove(uid string) error
+	List() ([]common.DecoratedActivity, error)
+}
+
+type summarizer interface {
+	Summarize(ctx context.Context, activity common.Activity) (*common.ActivitySummary, error)
 }
 
 type cancelableSource struct {
@@ -38,10 +45,10 @@ type cancelableSource struct {
 	cancel context.CancelFunc
 }
 
-func NewRegistry(logger *zerolog.Logger, summarizer summarizer) *Registry {
+func NewRegistry(logger *zerolog.Logger, summarizer summarizer, activityRepo activityStore) *Registry {
 	r := &Registry{
+		activityRepo:  activityRepo,
 		sources:       make(map[string]cancelableSource),
-		activities:    make(map[string]DecoratedActivity),
 		activityQueue: make(chan common.Activity),
 		errorQueue:    make(chan error),
 		done:          make(chan struct{}),
@@ -116,13 +123,10 @@ func (r *Registry) Source(uid string) (Source, error) {
 	return s.Source, nil
 }
 
-func (r *Registry) Activities() ([]DecoratedActivity, error) {
-	r.activitiesMutex.Lock()
-	defer r.activitiesMutex.Unlock()
-
-	matches := make([]DecoratedActivity, 0)
-	for _, a := range r.activities {
-		matches = append(matches, a)
+func (r *Registry) Activities() ([]common.DecoratedActivity, error) {
+	matches, err := r.activityRepo.List()
+	if err != nil {
+		return nil, fmt.Errorf("repo list: %w", err)
 	}
 
 	sort.Slice(matches, func(i, j int) bool {
@@ -132,12 +136,14 @@ func (r *Registry) Activities() ([]DecoratedActivity, error) {
 	return matches, nil
 }
 
-func (r *Registry) ActivitiesBySource(sourceUID string) ([]DecoratedActivity, error) {
-	r.activitiesMutex.Lock()
-	defer r.activitiesMutex.Unlock()
+func (r *Registry) ActivitiesBySource(sourceUID string) ([]common.DecoratedActivity, error) {
+	activities, err := r.Activities()
+	if err != nil {
+		return nil, fmt.Errorf("list activities: %w", err)
+	}
 
-	matches := make([]DecoratedActivity, 0)
-	for _, a := range r.activities {
+	matches := make([]common.DecoratedActivity, 0)
+	for _, a := range activities {
 		if a.SourceUID() == sourceUID {
 			matches = append(matches, a)
 		}
@@ -161,17 +167,19 @@ func (r *Registry) startWorkers(nWorkers int) {
 
 					summary, err := r.summarizer.Summarize(context.Background(), act)
 					if err != nil {
+						// TODO(pulse): Better way to handle errors here?
 						//r.errorQueue <- fmt.Errorf("summarize activity: %w", err)
 						r.logger.Error().Err(err).Msgf("[Worker %d] Error summarizing activity %v\n", workerID, err)
 						continue
 					}
 
-					r.activitiesMutex.Lock()
-					r.activities[act.UID()] = DecoratedActivity{
+					err = r.activityRepo.Add(common.DecoratedActivity{
 						Activity: act,
 						Summary:  summary,
+					})
+					if err != nil {
+						r.logger.Error().Err(err).Msgf("[Worker %d] Error storing activity %v\n", workerID, err)
 					}
-					r.activitiesMutex.Unlock()
 
 				case err := <-r.errorQueue:
 					r.logger.Error().Err(err).Msgf("[Worker %d] Error processing activity %v\n", workerID, err)

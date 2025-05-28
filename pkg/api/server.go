@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/glanceapp/glance/pkg/sources/summarizer"
+	"github.com/glanceapp/glance/pkg/storage/postgres"
 	"github.com/tmc/langchaingo/llms/openai"
 	"html/template"
 	"io"
@@ -30,13 +32,13 @@ type Server struct {
 	registry  *sources.Registry
 	logger    *zerolog.Logger
 	createdAt time.Time
-	config    Config
+	config    *Config
 	http      http.Server
 }
 
 var _ ServerInterface = (*Server)(nil)
 
-func NewServer(logger *zerolog.Logger, cfg Config) (*Server, error) {
+func NewServer(logger *zerolog.Logger, cfg *Config, db *postgres.DB) (*Server, error) {
 	summarizerModel, err := openai.New(
 		openai.WithModel("gpt-4o-mini"),
 	)
@@ -44,7 +46,11 @@ func NewServer(logger *zerolog.Logger, cfg Config) (*Server, error) {
 		return nil, err
 	}
 
-	registry := sources.NewRegistry(logger, summarizer.NewSummarizer(summarizerModel))
+	registry := sources.NewRegistry(
+		logger,
+		summarizer.NewSummarizer(summarizerModel),
+		postgres.NewActivityRepository(db),
+	)
 
 	mux := http.NewServeMux()
 
@@ -133,7 +139,7 @@ func (s *Server) GetPage(w http.ResponseWriter, r *http.Request, params GetPageP
 	themePresets := widgets.DefaultThemePresets()
 	data := templateData{
 		Page:           page,
-		Config:         &s.config,
+		Config:         s.config,
 		Theme:          themePresets[0],
 		ThemePresets:   themePresets,
 		FilterPrompt:   filterPrompt,
@@ -282,7 +288,7 @@ func deserializeCreateSourceRequest(req CreateSourceRequest) (sources.Source, er
 	return source, nil
 }
 
-func serializeActivities(in []sources.DecoratedActivity) []Activity {
+func serializeActivities(in []common.DecoratedActivity) []Activity {
 	out := make([]Activity, 0, len(in))
 
 	for _, e := range in {
@@ -292,7 +298,7 @@ func serializeActivities(in []sources.DecoratedActivity) []Activity {
 	return out
 }
 
-func serializeActivity(in sources.DecoratedActivity) Activity {
+func serializeActivity(in common.DecoratedActivity) Activity {
 	return Activity{
 		Body:         in.Body(),
 		CreatedAt:    in.CreatedAt(),

@@ -16,3 +16,8 @@ type ActivitySummary struct {
 	ShortSummary string
 	FullSummary  string
 }
+
+type DecoratedActivity struct {
+	Activity
+	Summary *ActivitySummary
+}
