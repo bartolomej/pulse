@@ -3,13 +3,15 @@ package github
 import (
 	"context"
 	"fmt"
-	"github.com/glanceapp/glance/pkg/sources/common"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/google/go-github/v72/github"
 )
+
+const TypeGithubIssues = "github-issues"
 
 type SourceIssues struct {
 	Repository string `json:"repository"`
@@ -31,6 +33,10 @@ func (s *SourceIssues) Name() string {
 
 func (s *SourceIssues) URL() string {
 	return fmt.Sprintf("https://github.com/%s", s.Repository)
+}
+
+func (s *SourceIssues) Type() string {
+	return TypeGithubIssues
 }
 
 type issueActivity struct {

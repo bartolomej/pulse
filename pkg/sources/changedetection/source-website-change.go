@@ -3,11 +3,14 @@ package changedetection
 import (
 	"context"
 	"fmt"
-	"github.com/glanceapp/glance/pkg/sources/common"
 	"net/http"
 	"sort"
 	"time"
+
+	"github.com/glanceapp/glance/pkg/sources/common"
 )
+
+const TypeChangedetectionWebsite = "changedetection-website-change"
 
 type SourceWebsiteChange struct {
 	WatchUUID   string `json:"watch"`
@@ -30,6 +33,10 @@ func (s *SourceWebsiteChange) Name() string {
 
 func (s *SourceWebsiteChange) URL() string {
 	return s.InstanceURL
+}
+
+func (s *SourceWebsiteChange) Type() string {
+	return TypeChangedetectionWebsite
 }
 
 func (s *SourceWebsiteChange) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {

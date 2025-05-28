@@ -6,14 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/glanceapp/glance/pkg/sources/common"
-	"github.com/glanceapp/glance/pkg/sources/summarizer"
-	"github.com/glanceapp/glance/pkg/storage/postgres"
-	"github.com/tmc/langchaingo/llms/openai"
 	"html/template"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/glanceapp/glance/pkg/sources/common"
+	"github.com/glanceapp/glance/pkg/sources/summarizer"
+	"github.com/glanceapp/glance/pkg/storage/postgres"
+	"github.com/tmc/langchaingo/llms/openai"
 
 	"github.com/glanceapp/glance/pkg/sources"
 	"github.com/glanceapp/glance/pkg/widgets"
@@ -50,6 +51,7 @@ func NewServer(logger *zerolog.Logger, cfg *Config, db *postgres.DB) (*Server, e
 		logger,
 		summarizer.NewSummarizer(summarizerModel),
 		postgres.NewActivityRepository(db),
+		postgres.NewSourceRepository(db),
 	)
 
 	mux := http.NewServeMux()

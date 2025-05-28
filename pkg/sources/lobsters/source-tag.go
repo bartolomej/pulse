@@ -3,8 +3,11 @@ package lobsters
 import (
 	"context"
 	"fmt"
+
 	"github.com/glanceapp/glance/pkg/sources/common"
 )
+
+const TypeLobstersTag = "lobsters-tag"
 
 type SourceTag struct {
 	InstanceURL string `json:"instance_url"`
@@ -29,6 +32,10 @@ func (s *SourceTag) Name() string {
 
 func (s *SourceTag) URL() string {
 	return fmt.Sprintf("https://lobste.rs/t/%s", s.Tag)
+}
+
+func (s *SourceTag) Type() string {
+	return TypeLobstersTag
 }
 
 func (s *SourceTag) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {

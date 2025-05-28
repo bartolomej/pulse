@@ -3,9 +3,12 @@ package mastodon
 import (
 	"context"
 	"fmt"
+
 	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/mattn/go-mastodon"
 )
+
+const TypeMastodonAccount = "mastodon-account"
 
 type SourceAccount struct {
 	InstanceURL string `json:"instance_url"`
@@ -29,6 +32,10 @@ func (s *SourceAccount) Name() string {
 
 func (s *SourceAccount) URL() string {
 	return fmt.Sprintf("%s/tags/%s", s.InstanceURL, s.Account)
+}
+
+func (s *SourceAccount) Type() string {
+	return TypeMastodonAccount
 }
 
 func (s *SourceAccount) Initialize() error {

@@ -11,13 +11,13 @@ import (
 )
 
 type Registry struct {
-	sources      map[string]cancelableSource
-	sourcesMutex sync.Mutex
+	sourceRepo   sourceStore
 	activityRepo activityStore
 
-	activityQueue chan common.Activity
-	errorQueue    chan error
-	done          chan struct{}
+	cancelBySourceID sync.Map
+	activityQueue    chan common.Activity
+	errorQueue       chan error
+	done             chan struct{}
 
 	logger     *zerolog.Logger
 	summarizer summarizer
@@ -40,15 +40,15 @@ type summarizer interface {
 	Summarize(ctx context.Context, activity common.Activity) (*common.ActivitySummary, error)
 }
 
-type cancelableSource struct {
-	Source
-	cancel context.CancelFunc
-}
-
-func NewRegistry(logger *zerolog.Logger, summarizer summarizer, activityRepo activityStore) *Registry {
+func NewRegistry(
+	logger *zerolog.Logger,
+	summarizer summarizer,
+	activityRepo activityStore,
+	sourceRepo sourceStore,
+) *Registry {
 	r := &Registry{
 		activityRepo:  activityRepo,
-		sources:       make(map[string]cancelableSource),
+		sourceRepo:    sourceRepo,
 		activityQueue: make(chan common.Activity),
 		errorQueue:    make(chan error),
 		done:          make(chan struct{}),
@@ -62,10 +62,9 @@ func NewRegistry(logger *zerolog.Logger, summarizer summarizer, activityRepo act
 }
 
 func (r *Registry) Add(source Source) error {
-	r.sourcesMutex.Lock()
-	defer r.sourcesMutex.Unlock()
+	existing, _ := r.sourceRepo.GetByID(source.UID())
 
-	if _, exists := r.sources[source.UID()]; exists {
+	if existing != nil {
 		return fmt.Errorf("source '%s' already exists", source.UID())
 	}
 
@@ -77,50 +76,44 @@ func (r *Registry) Add(source Source) error {
 
 	go source.Stream(ctx, r.activityQueue, r.errorQueue)
 
-	r.sources[source.UID()] = cancelableSource{
-		Source: source,
-		cancel: cancel,
+	err := r.sourceRepo.Add(source)
+	if err != nil {
+		cancel()
+		return fmt.Errorf("add source: %w", err)
 	}
+	r.cancelBySourceID.Store(source.UID(), cancel)
 
 	return nil
 }
 
 func (r *Registry) Remove(uid string) error {
-	r.sourcesMutex.Lock()
-	defer r.sourcesMutex.Unlock()
+	existing, _ := r.sourceRepo.GetByID(uid)
 
-	h, ok := r.sources[uid]
-	if !ok {
+	if existing != nil {
 		return fmt.Errorf("source '%s' not found", uid)
 	}
 
-	h.cancel()
-	delete(r.sources, uid)
+	cancel, ok := r.cancelBySourceID.Load(uid)
+	if !ok {
+		return fmt.Errorf("source '%s' cancel func not found", uid)
+	}
+	cancel.(context.CancelFunc)()
+	r.cancelBySourceID.Delete(uid)
+
+	err := r.sourceRepo.Remove(uid)
+	if err != nil {
+		return fmt.Errorf("remove source: %w", err)
+	}
 
 	return nil
 }
 
 func (r *Registry) Sources() ([]Source, error) {
-	r.sourcesMutex.Lock()
-	defer r.sourcesMutex.Unlock()
-
-	out := make([]Source, 0, len(r.sources))
-	for _, s := range r.sources {
-		out = append(out, s.Source)
-	}
-	return out, nil
+	return r.sourceRepo.List()
 }
 
 func (r *Registry) Source(uid string) (Source, error) {
-	r.sourcesMutex.Lock()
-	defer r.sourcesMutex.Unlock()
-
-	s, ok := r.sources[uid]
-	if !ok {
-		return nil, fmt.Errorf("source '%s' not found", uid)
-	}
-
-	return s.Source, nil
+	return r.sourceRepo.GetByID(uid)
 }
 
 func (r *Registry) Activities() ([]common.DecoratedActivity, error) {
@@ -196,9 +189,10 @@ func (r *Registry) startWorkers(nWorkers int) {
 func (r *Registry) Shutdown() {
 	close(r.done)
 
-	r.sourcesMutex.Lock()
-	for _, source := range r.sources {
-		source.cancel()
-	}
-	r.sourcesMutex.Unlock()
+	r.cancelBySourceID.Range(func(key, value interface{}) bool {
+		cancel := value.(context.CancelFunc)
+		cancel()
+		return true
+	})
+	r.cancelBySourceID.Clear()
 }

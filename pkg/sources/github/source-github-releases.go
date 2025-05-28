@@ -3,13 +3,15 @@ package github
 import (
 	"context"
 	"fmt"
-	"github.com/glanceapp/glance/pkg/sources/common"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/google/go-github/v72/github"
 )
+
+const TypeGithubReleases = "github-releases"
 
 type SourceRelease struct {
 	Repository       string `json:"repository"`
@@ -34,6 +36,10 @@ func (s *SourceRelease) Name() string {
 
 func (s *SourceRelease) URL() string {
 	return fmt.Sprintf("https://github.com/%s", s.Repository)
+}
+
+func (s *SourceRelease) Type() string {
+	return TypeGithubReleases
 }
 
 func (s *SourceRelease) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {

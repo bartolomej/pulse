@@ -4,15 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/glanceapp/glance/pkg/sources/common"
 	"html"
 	"log/slog"
 	"strings"
 	"time"
 
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/go-shiori/go-readability"
 	"github.com/vartanbeno/go-reddit/v2/reddit"
 )
+
+const TypeRedditSubreddit = "reddit-subreddit"
 
 type SourceSubreddit struct {
 	Subreddit          string `json:"subreddit"`
@@ -42,6 +44,10 @@ func (s *SourceSubreddit) Name() string {
 
 func (s *SourceSubreddit) URL() string {
 	return fmt.Sprintf("https://reddit.com/r/%s/%s", s.Subreddit, s.SortBy)
+}
+
+func (s *SourceSubreddit) Type() string {
+	return TypeRedditSubreddit
 }
 
 type redditPost struct {

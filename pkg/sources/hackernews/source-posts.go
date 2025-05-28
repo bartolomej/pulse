@@ -6,11 +6,12 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/glanceapp/glance/pkg/sources/common"
-
 	"github.com/alexferrari88/gohn/pkg/gohn"
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/go-shiori/go-readability"
 )
+
+const TypeHackerNewsPosts = "hackernews-posts"
 
 type SourcePosts struct {
 	FeedName string `json:"feed_name"`
@@ -31,6 +32,10 @@ func (s *SourcePosts) Name() string {
 
 func (s *SourcePosts) URL() string {
 	return fmt.Sprintf("https://news.ycombinator.com/%s", s.FeedName)
+}
+
+func (s *SourcePosts) Type() string {
+	return TypeHackerNewsPosts
 }
 
 type hackerNewsPost struct {

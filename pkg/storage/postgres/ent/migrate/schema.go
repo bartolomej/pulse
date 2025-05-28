@@ -27,9 +27,24 @@ var (
 		Columns:    ActivitiesColumns,
 		PrimaryKey: []*schema.Column{ActivitiesColumns[0]},
 	}
+	// SourcesColumns holds the columns for the "sources" table.
+	SourcesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Unique: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "url", Type: field.TypeString},
+		{Name: "type", Type: field.TypeString},
+		{Name: "config_json", Type: field.TypeString, Nullable: true},
+	}
+	// SourcesTable holds the schema information for the "sources" table.
+	SourcesTable = &schema.Table{
+		Name:       "sources",
+		Columns:    SourcesColumns,
+		PrimaryKey: []*schema.Column{SourcesColumns[0]},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		ActivitiesTable,
+		SourcesTable,
 	}
 )
 

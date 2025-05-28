@@ -3,8 +3,11 @@ package lobsters
 import (
 	"context"
 	"fmt"
+
 	"github.com/glanceapp/glance/pkg/sources/common"
 )
+
+const TypeLobstersFeed = "lobsters-feed"
 
 type SourceFeed struct {
 	InstanceURL string `json:"instance_url"`
@@ -29,6 +32,10 @@ func (s *SourceFeed) Name() string {
 
 func (s *SourceFeed) URL() string {
 	return fmt.Sprintf("https://lobste.rs/%s", s.FeedName)
+}
+
+func (s *SourceFeed) Type() string {
+	return TypeLobstersFeed
 }
 
 func (s *SourceFeed) Initialize() error {

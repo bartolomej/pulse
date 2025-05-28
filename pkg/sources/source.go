@@ -18,25 +18,25 @@ func NewSource(sourceType string) (Source, error) {
 	var s Source
 
 	switch sourceType {
-	case "mastodon-account":
+	case mastodon.TypeMastodonAccount:
 		s = mastodon.NewSourceAccount()
-	case "mastodon-tag":
+	case mastodon.TypeMastodonTag:
 		s = mastodon.NewSourceTag()
-	case "hackernews-posts":
+	case hackernews.TypeHackerNewsPosts:
 		s = hackernews.NewSourcePosts()
-	case "reddit-subreddit":
+	case reddit.TypeRedditSubreddit:
 		s = reddit.NewSourceSubreddit()
-	case "lobsters-tag":
+	case lobsters.TypeLobstersTag:
 		s = lobsters.NewSourceTag()
-	case "lobsters-feed":
+	case lobsters.TypeLobstersFeed:
 		s = lobsters.NewSourceFeed()
-	case "rss-feed":
+	case rss.TypeRSSFeed:
 		s = rss.NewSourceFeed()
-	case "github-releases":
+	case github.TypeGithubReleases:
 		s = github.NewReleaseSource()
-	case "github-issues":
+	case github.TypeGithubIssues:
 		s = github.NewIssuesSource()
-	case "changedetection-website-change":
+	case changedetection.TypeChangedetectionWebsite:
 		s = changedetection.NewSourceWebsiteChange()
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", sourceType)
@@ -47,6 +47,7 @@ func NewSource(sourceType string) (Source, error) {
 
 type Source interface {
 	UID() string
+	Type() string
 	// Name is a human-readable UID.
 	Name() string
 	// URL is a web resource representation of UID.

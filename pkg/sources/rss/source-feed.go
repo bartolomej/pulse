@@ -3,7 +3,6 @@ package rss
 import (
 	"context"
 	"fmt"
-	"github.com/glanceapp/glance/pkg/sources/common"
 	"html"
 	"net/http"
 	"net/url"
@@ -12,9 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/mmcdole/gofeed"
 	gofeedext "github.com/mmcdole/gofeed/extensions"
 )
+
+const TypeRSSFeed = "rss-feed"
 
 type customTransport struct {
 	headers map[string]string
@@ -47,6 +49,10 @@ func (s *SourceFeed) Name() string {
 
 func (s *SourceFeed) URL() string {
 	return s.FeedURL
+}
+
+func (s *SourceFeed) Type() string {
+	return TypeRSSFeed
 }
 
 func (s *SourceFeed) Initialize() error {

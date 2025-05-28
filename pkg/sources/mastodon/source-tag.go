@@ -3,9 +3,12 @@ package mastodon
 import (
 	"context"
 	"fmt"
+
 	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/mattn/go-mastodon"
 )
+
+const TypeMastodonTag = "mastodon-tag"
 
 type SourceTag struct {
 	InstanceURL string `json:"instance_url"`
@@ -28,6 +31,10 @@ func (s *SourceTag) Name() string {
 
 func (s *SourceTag) URL() string {
 	return fmt.Sprintf("%s/tags/%s", s.InstanceURL, s.Tag)
+}
+
+func (s *SourceTag) Type() string {
+	return TypeMastodonTag
 }
 
 func (s *SourceTag) Initialize() error {
