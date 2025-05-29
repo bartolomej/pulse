@@ -74,6 +74,11 @@ func SourceUID(v string) predicate.Activity {
 	return predicate.Activity(sql.FieldEQ(FieldSourceUID, v))
 }
 
+// SourceType applies equality check predicate on the "source_type" field. It's identical to SourceTypeEQ.
+func SourceType(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldEQ(FieldSourceType, v))
+}
+
 // Title applies equality check predicate on the "title" field. It's identical to TitleEQ.
 func Title(v string) predicate.Activity {
 	return predicate.Activity(sql.FieldEQ(FieldTitle, v))
@@ -107,6 +112,11 @@ func ShortSummary(v string) predicate.Activity {
 // FullSummary applies equality check predicate on the "full_summary" field. It's identical to FullSummaryEQ.
 func FullSummary(v string) predicate.Activity {
 	return predicate.Activity(sql.FieldEQ(FieldFullSummary, v))
+}
+
+// RawJSON applies equality check predicate on the "raw_json" field. It's identical to RawJSONEQ.
+func RawJSON(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldEQ(FieldRawJSON, v))
 }
 
 // UIDEQ applies the EQ predicate on the "uid" field.
@@ -237,6 +247,71 @@ func SourceUIDEqualFold(v string) predicate.Activity {
 // SourceUIDContainsFold applies the ContainsFold predicate on the "source_uid" field.
 func SourceUIDContainsFold(v string) predicate.Activity {
 	return predicate.Activity(sql.FieldContainsFold(FieldSourceUID, v))
+}
+
+// SourceTypeEQ applies the EQ predicate on the "source_type" field.
+func SourceTypeEQ(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldEQ(FieldSourceType, v))
+}
+
+// SourceTypeNEQ applies the NEQ predicate on the "source_type" field.
+func SourceTypeNEQ(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldNEQ(FieldSourceType, v))
+}
+
+// SourceTypeIn applies the In predicate on the "source_type" field.
+func SourceTypeIn(vs ...string) predicate.Activity {
+	return predicate.Activity(sql.FieldIn(FieldSourceType, vs...))
+}
+
+// SourceTypeNotIn applies the NotIn predicate on the "source_type" field.
+func SourceTypeNotIn(vs ...string) predicate.Activity {
+	return predicate.Activity(sql.FieldNotIn(FieldSourceType, vs...))
+}
+
+// SourceTypeGT applies the GT predicate on the "source_type" field.
+func SourceTypeGT(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldGT(FieldSourceType, v))
+}
+
+// SourceTypeGTE applies the GTE predicate on the "source_type" field.
+func SourceTypeGTE(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldGTE(FieldSourceType, v))
+}
+
+// SourceTypeLT applies the LT predicate on the "source_type" field.
+func SourceTypeLT(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldLT(FieldSourceType, v))
+}
+
+// SourceTypeLTE applies the LTE predicate on the "source_type" field.
+func SourceTypeLTE(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldLTE(FieldSourceType, v))
+}
+
+// SourceTypeContains applies the Contains predicate on the "source_type" field.
+func SourceTypeContains(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldContains(FieldSourceType, v))
+}
+
+// SourceTypeHasPrefix applies the HasPrefix predicate on the "source_type" field.
+func SourceTypeHasPrefix(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldHasPrefix(FieldSourceType, v))
+}
+
+// SourceTypeHasSuffix applies the HasSuffix predicate on the "source_type" field.
+func SourceTypeHasSuffix(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldHasSuffix(FieldSourceType, v))
+}
+
+// SourceTypeEqualFold applies the EqualFold predicate on the "source_type" field.
+func SourceTypeEqualFold(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldEqualFold(FieldSourceType, v))
+}
+
+// SourceTypeContainsFold applies the ContainsFold predicate on the "source_type" field.
+func SourceTypeContainsFold(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldContainsFold(FieldSourceType, v))
 }
 
 // TitleEQ applies the EQ predicate on the "title" field.
@@ -667,6 +742,71 @@ func FullSummaryEqualFold(v string) predicate.Activity {
 // FullSummaryContainsFold applies the ContainsFold predicate on the "full_summary" field.
 func FullSummaryContainsFold(v string) predicate.Activity {
 	return predicate.Activity(sql.FieldContainsFold(FieldFullSummary, v))
+}
+
+// RawJSONEQ applies the EQ predicate on the "raw_json" field.
+func RawJSONEQ(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldEQ(FieldRawJSON, v))
+}
+
+// RawJSONNEQ applies the NEQ predicate on the "raw_json" field.
+func RawJSONNEQ(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldNEQ(FieldRawJSON, v))
+}
+
+// RawJSONIn applies the In predicate on the "raw_json" field.
+func RawJSONIn(vs ...string) predicate.Activity {
+	return predicate.Activity(sql.FieldIn(FieldRawJSON, vs...))
+}
+
+// RawJSONNotIn applies the NotIn predicate on the "raw_json" field.
+func RawJSONNotIn(vs ...string) predicate.Activity {
+	return predicate.Activity(sql.FieldNotIn(FieldRawJSON, vs...))
+}
+
+// RawJSONGT applies the GT predicate on the "raw_json" field.
+func RawJSONGT(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldGT(FieldRawJSON, v))
+}
+
+// RawJSONGTE applies the GTE predicate on the "raw_json" field.
+func RawJSONGTE(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldGTE(FieldRawJSON, v))
+}
+
+// RawJSONLT applies the LT predicate on the "raw_json" field.
+func RawJSONLT(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldLT(FieldRawJSON, v))
+}
+
+// RawJSONLTE applies the LTE predicate on the "raw_json" field.
+func RawJSONLTE(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldLTE(FieldRawJSON, v))
+}
+
+// RawJSONContains applies the Contains predicate on the "raw_json" field.
+func RawJSONContains(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldContains(FieldRawJSON, v))
+}
+
+// RawJSONHasPrefix applies the HasPrefix predicate on the "raw_json" field.
+func RawJSONHasPrefix(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldHasPrefix(FieldRawJSON, v))
+}
+
+// RawJSONHasSuffix applies the HasSuffix predicate on the "raw_json" field.
+func RawJSONHasSuffix(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldHasSuffix(FieldRawJSON, v))
+}
+
+// RawJSONEqualFold applies the EqualFold predicate on the "raw_json" field.
+func RawJSONEqualFold(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldEqualFold(FieldRawJSON, v))
+}
+
+// RawJSONContainsFold applies the ContainsFold predicate on the "raw_json" field.
+func RawJSONContainsFold(v string) predicate.Activity {
+	return predicate.Activity(sql.FieldContainsFold(FieldRawJSON, v))
 }
 
 // And groups predicates with the AND operator between them.

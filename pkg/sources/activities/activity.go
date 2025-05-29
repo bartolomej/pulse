@@ -1,10 +1,8 @@
-package sources
+package activities
 
 import (
-	"context"
 	"fmt"
 	"github.com/glanceapp/glance/pkg/sources/activities/types"
-
 	"github.com/glanceapp/glance/pkg/sources/changedetection"
 	"github.com/glanceapp/glance/pkg/sources/github"
 	"github.com/glanceapp/glance/pkg/sources/hackernews"
@@ -14,44 +12,33 @@ import (
 	"github.com/glanceapp/glance/pkg/sources/rss"
 )
 
-func NewSource(sourceType string) (Source, error) {
-	var s Source
+func NewActivity(sourceType string) (types.Activity, error) {
+	var a types.Activity
 
 	switch sourceType {
 	case mastodon.TypeMastodonAccount:
-		s = mastodon.NewSourceAccount()
+		a = mastodon.NewPost()
 	case mastodon.TypeMastodonTag:
-		s = mastodon.NewSourceTag()
+		a = mastodon.NewPost()
 	case hackernews.TypeHackerNewsPosts:
-		s = hackernews.NewSourcePosts()
+		a = hackernews.NewPost()
 	case reddit.TypeRedditSubreddit:
-		s = reddit.NewSourceSubreddit()
+		a = reddit.NewPost()
 	case lobsters.TypeLobstersTag:
-		s = lobsters.NewSourceTag()
+		a = lobsters.NewPost()
 	case lobsters.TypeLobstersFeed:
-		s = lobsters.NewSourceFeed()
+		a = lobsters.NewPost()
 	case rss.TypeRSSFeed:
-		s = rss.NewSourceFeed()
+		a = rss.NewFeedItem()
 	case github.TypeGithubReleases:
-		s = github.NewReleaseSource()
+		a = github.NewRelease()
 	case github.TypeGithubIssues:
-		s = github.NewIssuesSource()
+		a = github.NewIssue()
 	case changedetection.TypeChangedetectionWebsite:
-		s = changedetection.NewSourceWebsiteChange()
+		a = changedetection.NewWebsiteChange()
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", sourceType)
 	}
 
-	return s, nil
-}
-
-type Source interface {
-	UID() string
-	Type() string
-	// Name is a human-readable UID.
-	Name() string
-	// URL is a web resource representation of UID.
-	URL() string
-	Initialize() error
-	Stream(ctx context.Context, feed chan<- types.Activity, errs chan<- error)
+	return a, nil
 }

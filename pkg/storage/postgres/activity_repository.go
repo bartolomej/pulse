@@ -2,9 +2,10 @@ package postgres
 
 import (
 	"context"
-	"time"
+	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/activities"
+	"github.com/glanceapp/glance/pkg/sources/activities/types"
 
-	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/glanceapp/glance/pkg/storage/postgres/ent"
 	"github.com/glanceapp/glance/pkg/storage/postgres/ent/activity"
 )
@@ -17,10 +18,15 @@ func NewActivityRepository(db *DB) *ActivityRepository {
 	return &ActivityRepository{db: db}
 }
 
-func (r *ActivityRepository) Add(activity common.DecoratedActivity) error {
+func (r *ActivityRepository) Add(activity types.DecoratedActivity) error {
 	ctx := context.Background()
 
-	_, err := r.db.Client().Activity.Create().
+	rawJson, err := activity.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("marshal activity: %w", err)
+	}
+
+	_, err = r.db.Client().Activity.Create().
 		SetID(activity.UID()).
 		SetUID(activity.UID()).
 		SetSourceUID(activity.SourceUID()).
@@ -29,6 +35,8 @@ func (r *ActivityRepository) Add(activity common.DecoratedActivity) error {
 		SetURL(activity.URL()).
 		SetImageURL(activity.ImageURL()).
 		SetCreatedAt(activity.CreatedAt()).
+		SetSourceType(activity.SourceType()).
+		SetRawJSON(string(rawJson)).
 		SetShortSummary(activity.Summary.ShortSummary).
 		SetFullSummary(activity.Summary.FullSummary).
 		Save(ctx)
@@ -41,29 +49,31 @@ func (r *ActivityRepository) Remove(uid string) error {
 	return r.db.Client().Activity.DeleteOneID(uid).Exec(ctx)
 }
 
-func (r *ActivityRepository) List() ([]common.DecoratedActivity, error) {
+func (r *ActivityRepository) List() ([]types.DecoratedActivity, error) {
 	ctx := context.Background()
 
-	activities, err := r.db.Client().Activity.Query().
+	results, err := r.db.Client().Activity.Query().
 		Order(ent.Desc(activity.FieldCreatedAt)).
 		All(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]common.DecoratedActivity, len(activities))
-	for i, a := range activities {
-		result[i] = common.DecoratedActivity{
-			Activity: &activityImpl{
-				uid:       a.UID,
-				sourceUID: a.SourceUID,
-				title:     a.Title,
-				body:      a.Body,
-				url:       a.URL,
-				imageURL:  a.ImageURL,
-				createdAt: a.CreatedAt,
-			},
-			Summary: &common.ActivitySummary{
+	result := make([]types.DecoratedActivity, len(results))
+	for i, a := range results {
+		act, err := activities.NewActivity(a.SourceType)
+		if err != nil {
+			return nil, fmt.Errorf("new activity: %w", err)
+		}
+
+		err = act.UnmarshalJSON([]byte(a.RawJSON))
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal activity: %w", err)
+		}
+
+		result[i] = types.DecoratedActivity{
+			Activity: act,
+			Summary: &types.ActivitySummary{
 				ShortSummary: a.ShortSummary,
 				FullSummary:  a.FullSummary,
 			},
@@ -72,21 +82,3 @@ func (r *ActivityRepository) List() ([]common.DecoratedActivity, error) {
 
 	return result, nil
 }
-
-type activityImpl struct {
-	uid       string
-	sourceUID string
-	title     string
-	body      string
-	url       string
-	imageURL  string
-	createdAt time.Time
-}
-
-func (a *activityImpl) UID() string          { return a.uid }
-func (a *activityImpl) SourceUID() string    { return a.sourceUID }
-func (a *activityImpl) Title() string        { return a.title }
-func (a *activityImpl) Body() string         { return a.body }
-func (a *activityImpl) URL() string          { return a.url }
-func (a *activityImpl) ImageURL() string     { return a.imageURL }
-func (a *activityImpl) CreatedAt() time.Time { return a.createdAt }

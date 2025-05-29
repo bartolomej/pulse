@@ -2,14 +2,15 @@ package reddit
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/activities/types"
 	"html"
 	"log/slog"
 	"strings"
 	"time"
 
-	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/go-shiori/go-readability"
 	"github.com/vartanbeno/go-reddit/v2/reddit"
 )
@@ -50,50 +51,78 @@ func (s *SourceSubreddit) Type() string {
 	return TypeRedditSubreddit
 }
 
-type redditPost struct {
-	raw       *reddit.Post
-	sourceUID string
+type Post struct {
+	Post      *reddit.Post `json:"post"`
+	SourceID  string       `json:"source_id"`
+	SourceTyp string       `json:"source_type"`
 }
 
-func (p *redditPost) UID() string {
-	return p.raw.ID
+func NewPost() *Post {
+	return &Post{}
 }
 
-func (p *redditPost) SourceUID() string {
-	return p.sourceUID
+func (p *Post) SourceType() string {
+	return p.SourceTyp
 }
 
-func (p *redditPost) Title() string {
-	return html.UnescapeString(p.raw.Title)
+func (p *Post) MarshalJSON() ([]byte, error) {
+	type Alias Post
+	return json.Marshal(&struct {
+		*Alias
+	}{
+		Alias: (*Alias)(p),
+	})
 }
 
-func (p *redditPost) Body() string {
-	body := p.raw.Body
-	if p.raw.URL != "" && !p.raw.IsSelfPost {
-		article, err := readability.FromURL(p.raw.URL, 5*time.Second)
+func (p *Post) UnmarshalJSON(data []byte) error {
+	type Alias Post
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(p),
+	}
+	return json.Unmarshal(data, &aux)
+}
+
+func (p *Post) UID() string {
+	return p.Post.ID
+}
+
+func (p *Post) SourceUID() string {
+	return p.SourceID
+}
+
+func (p *Post) Title() string {
+	return html.UnescapeString(p.Post.Title)
+}
+
+func (p *Post) Body() string {
+	body := p.Post.Body
+	if p.Post.URL != "" && !p.Post.IsSelfPost {
+		article, err := readability.FromURL(p.Post.URL, 5*time.Second)
 		if err == nil {
 			body += fmt.Sprintf("\n\nReferenced article: \n%s", article.TextContent)
 		} else {
-			slog.Error("Failed to fetch reddit article", "error", err, "url", p.raw.URL)
+			slog.Error("Failed to fetch reddit article", "error", err, "url", p.Post.URL)
 		}
 	}
 	return body
 }
 
-func (p *redditPost) URL() string {
+func (p *Post) URL() string {
 	// TODO(pulse): Test format
-	return "https://www.reddit.com" + p.raw.Permalink
+	return "https://www.reddit.com" + p.Post.Permalink
 }
 
-func (p *redditPost) ImageURL() string {
+func (p *Post) ImageURL() string {
 	// TODO(pulse): Fetch thumbnail URL
 	// The go-reddit library doesn't provide direct access to thumbnail URLs
 	// We'll need to fetch this information separately if needed
 	return ""
 }
 
-func (p *redditPost) CreatedAt() time.Time {
-	return p.raw.Created.Time
+func (p *Post) CreatedAt() time.Time {
+	return p.Post.Created.Time
 }
 
 func (s *SourceSubreddit) Initialize() error {
@@ -138,7 +167,7 @@ func (s *SourceSubreddit) Initialize() error {
 	return nil
 }
 
-func (s *SourceSubreddit) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
+func (s *SourceSubreddit) Stream(ctx context.Context, feed chan<- types.Activity, errs chan<- error) {
 	posts, err := s.fetchSubredditPosts(ctx)
 
 	if err != nil {
@@ -151,7 +180,7 @@ func (s *SourceSubreddit) Stream(ctx context.Context, feed chan<- common.Activit
 	}
 }
 
-func (s *SourceSubreddit) fetchSubredditPosts(ctx context.Context) ([]*redditPost, error) {
+func (s *SourceSubreddit) fetchSubredditPosts(ctx context.Context) ([]*Post, error) {
 	var posts []*reddit.Post
 	var err error
 
@@ -198,13 +227,13 @@ func (s *SourceSubreddit) fetchSubredditPosts(ctx context.Context) ([]*redditPos
 		return nil, fmt.Errorf("no posts found")
 	}
 
-	redditPosts := make([]*redditPost, 0, len(posts))
+	redditPosts := make([]*Post, 0, len(posts))
 	for _, post := range posts {
 		if post.Stickied {
 			continue
 		}
 
-		redditPosts = append(redditPosts, &redditPost{raw: post, sourceUID: s.UID()})
+		redditPosts = append(redditPosts, &Post{Post: post, SourceTyp: s.Type(), SourceID: s.UID()})
 	}
 
 	return redditPosts, nil

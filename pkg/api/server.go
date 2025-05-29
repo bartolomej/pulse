@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/activities/types"
 	"html/template"
 	"io"
 	"net/http"
 	"time"
 
-	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/glanceapp/glance/pkg/sources/summarizer"
 	"github.com/glanceapp/glance/pkg/storage/postgres"
 	"github.com/tmc/langchaingo/llms/openai"
@@ -290,7 +290,7 @@ func deserializeCreateSourceRequest(req CreateSourceRequest) (sources.Source, er
 	return source, nil
 }
 
-func serializeActivities(in []common.DecoratedActivity) []Activity {
+func serializeActivities(in []types.DecoratedActivity) []Activity {
 	out := make([]Activity, 0, len(in))
 
 	for _, e := range in {
@@ -300,7 +300,7 @@ func serializeActivities(in []common.DecoratedActivity) []Activity {
 	return out
 }
 
-func serializeActivity(in common.DecoratedActivity) Activity {
+func serializeActivity(in types.DecoratedActivity) Activity {
 	return Activity{
 		Body:         in.Body(),
 		CreatedAt:    in.CreatedAt(),

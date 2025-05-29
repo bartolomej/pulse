@@ -32,6 +32,12 @@ func (ac *ActivityCreate) SetSourceUID(s string) *ActivityCreate {
 	return ac
 }
 
+// SetSourceType sets the "source_type" field.
+func (ac *ActivityCreate) SetSourceType(s string) *ActivityCreate {
+	ac.mutation.SetSourceType(s)
+	return ac
+}
+
 // SetTitle sets the "title" field.
 func (ac *ActivityCreate) SetTitle(s string) *ActivityCreate {
 	ac.mutation.SetTitle(s)
@@ -71,6 +77,12 @@ func (ac *ActivityCreate) SetShortSummary(s string) *ActivityCreate {
 // SetFullSummary sets the "full_summary" field.
 func (ac *ActivityCreate) SetFullSummary(s string) *ActivityCreate {
 	ac.mutation.SetFullSummary(s)
+	return ac
+}
+
+// SetRawJSON sets the "raw_json" field.
+func (ac *ActivityCreate) SetRawJSON(s string) *ActivityCreate {
+	ac.mutation.SetRawJSON(s)
 	return ac
 }
 
@@ -120,6 +132,9 @@ func (ac *ActivityCreate) check() error {
 	if _, ok := ac.mutation.SourceUID(); !ok {
 		return &ValidationError{Name: "source_uid", err: errors.New(`ent: missing required field "Activity.source_uid"`)}
 	}
+	if _, ok := ac.mutation.SourceType(); !ok {
+		return &ValidationError{Name: "source_type", err: errors.New(`ent: missing required field "Activity.source_type"`)}
+	}
 	if _, ok := ac.mutation.Title(); !ok {
 		return &ValidationError{Name: "title", err: errors.New(`ent: missing required field "Activity.title"`)}
 	}
@@ -140,6 +155,9 @@ func (ac *ActivityCreate) check() error {
 	}
 	if _, ok := ac.mutation.FullSummary(); !ok {
 		return &ValidationError{Name: "full_summary", err: errors.New(`ent: missing required field "Activity.full_summary"`)}
+	}
+	if _, ok := ac.mutation.RawJSON(); !ok {
+		return &ValidationError{Name: "raw_json", err: errors.New(`ent: missing required field "Activity.raw_json"`)}
 	}
 	return nil
 }
@@ -184,6 +202,10 @@ func (ac *ActivityCreate) createSpec() (*Activity, *sqlgraph.CreateSpec) {
 		_spec.SetField(activity.FieldSourceUID, field.TypeString, value)
 		_node.SourceUID = value
 	}
+	if value, ok := ac.mutation.SourceType(); ok {
+		_spec.SetField(activity.FieldSourceType, field.TypeString, value)
+		_node.SourceType = value
+	}
 	if value, ok := ac.mutation.Title(); ok {
 		_spec.SetField(activity.FieldTitle, field.TypeString, value)
 		_node.Title = value
@@ -211,6 +233,10 @@ func (ac *ActivityCreate) createSpec() (*Activity, *sqlgraph.CreateSpec) {
 	if value, ok := ac.mutation.FullSummary(); ok {
 		_spec.SetField(activity.FieldFullSummary, field.TypeString, value)
 		_node.FullSummary = value
+	}
+	if value, ok := ac.mutation.RawJSON(); ok {
+		_spec.SetField(activity.FieldRawJSON, field.TypeString, value)
+		_node.RawJSON = value
 	}
 	return _node, _spec
 }

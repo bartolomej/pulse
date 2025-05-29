@@ -3,8 +3,8 @@ package mastodon
 import (
 	"context"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/activities/types"
 
-	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/mattn/go-mastodon"
 )
 
@@ -48,7 +48,7 @@ func (s *SourceAccount) Initialize() error {
 	return nil
 }
 
-func (s *SourceAccount) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
+func (s *SourceAccount) Stream(ctx context.Context, feed chan<- types.Activity, errs chan<- error) {
 	account, err := s.fetchAccount(ctx)
 	if err != nil {
 		errs <- fmt.Errorf("fetch account: %w", err)
@@ -80,7 +80,7 @@ func (s *SourceAccount) fetchAccount(ctx context.Context) (*mastodon.Account, er
 	return accounts.Accounts[0], nil
 }
 
-func (s *SourceAccount) fetchAccountPosts(ctx context.Context, accountID mastodon.ID, limit int64) ([]*mastodonPost, error) {
+func (s *SourceAccount) fetchAccountPosts(ctx context.Context, accountID mastodon.ID, limit int64) ([]*Post, error) {
 	statuses, err := s.client.GetAccountStatuses(ctx, accountID, &mastodon.Pagination{
 		Limit: limit,
 	})
@@ -88,9 +88,9 @@ func (s *SourceAccount) fetchAccountPosts(ctx context.Context, accountID mastodo
 		return nil, fmt.Errorf("fetch account statuses: %w", err)
 	}
 
-	posts := make([]*mastodonPost, len(statuses))
+	posts := make([]*Post, len(statuses))
 	for i, status := range statuses {
-		posts[i] = &mastodonPost{raw: status, sourceUID: s.UID()}
+		posts[i] = &Post{Status: status, SourceTyp: s.Type(), SourceID: s.UID()}
 	}
 
 	return posts, nil

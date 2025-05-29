@@ -56,6 +56,20 @@ func (au *ActivityUpdate) SetNillableSourceUID(s *string) *ActivityUpdate {
 	return au
 }
 
+// SetSourceType sets the "source_type" field.
+func (au *ActivityUpdate) SetSourceType(s string) *ActivityUpdate {
+	au.mutation.SetSourceType(s)
+	return au
+}
+
+// SetNillableSourceType sets the "source_type" field if the given value is not nil.
+func (au *ActivityUpdate) SetNillableSourceType(s *string) *ActivityUpdate {
+	if s != nil {
+		au.SetSourceType(*s)
+	}
+	return au
+}
+
 // SetTitle sets the "title" field.
 func (au *ActivityUpdate) SetTitle(s string) *ActivityUpdate {
 	au.mutation.SetTitle(s)
@@ -154,6 +168,20 @@ func (au *ActivityUpdate) SetNillableFullSummary(s *string) *ActivityUpdate {
 	return au
 }
 
+// SetRawJSON sets the "raw_json" field.
+func (au *ActivityUpdate) SetRawJSON(s string) *ActivityUpdate {
+	au.mutation.SetRawJSON(s)
+	return au
+}
+
+// SetNillableRawJSON sets the "raw_json" field if the given value is not nil.
+func (au *ActivityUpdate) SetNillableRawJSON(s *string) *ActivityUpdate {
+	if s != nil {
+		au.SetRawJSON(*s)
+	}
+	return au
+}
+
 // Mutation returns the ActivityMutation object of the builder.
 func (au *ActivityUpdate) Mutation() *ActivityMutation {
 	return au.mutation
@@ -201,6 +229,9 @@ func (au *ActivityUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := au.mutation.SourceUID(); ok {
 		_spec.SetField(activity.FieldSourceUID, field.TypeString, value)
 	}
+	if value, ok := au.mutation.SourceType(); ok {
+		_spec.SetField(activity.FieldSourceType, field.TypeString, value)
+	}
 	if value, ok := au.mutation.Title(); ok {
 		_spec.SetField(activity.FieldTitle, field.TypeString, value)
 	}
@@ -221,6 +252,9 @@ func (au *ActivityUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := au.mutation.FullSummary(); ok {
 		_spec.SetField(activity.FieldFullSummary, field.TypeString, value)
+	}
+	if value, ok := au.mutation.RawJSON(); ok {
+		_spec.SetField(activity.FieldRawJSON, field.TypeString, value)
 	}
 	if n, err = sqlgraph.UpdateNodes(ctx, au.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -266,6 +300,20 @@ func (auo *ActivityUpdateOne) SetSourceUID(s string) *ActivityUpdateOne {
 func (auo *ActivityUpdateOne) SetNillableSourceUID(s *string) *ActivityUpdateOne {
 	if s != nil {
 		auo.SetSourceUID(*s)
+	}
+	return auo
+}
+
+// SetSourceType sets the "source_type" field.
+func (auo *ActivityUpdateOne) SetSourceType(s string) *ActivityUpdateOne {
+	auo.mutation.SetSourceType(s)
+	return auo
+}
+
+// SetNillableSourceType sets the "source_type" field if the given value is not nil.
+func (auo *ActivityUpdateOne) SetNillableSourceType(s *string) *ActivityUpdateOne {
+	if s != nil {
+		auo.SetSourceType(*s)
 	}
 	return auo
 }
@@ -368,6 +416,20 @@ func (auo *ActivityUpdateOne) SetNillableFullSummary(s *string) *ActivityUpdateO
 	return auo
 }
 
+// SetRawJSON sets the "raw_json" field.
+func (auo *ActivityUpdateOne) SetRawJSON(s string) *ActivityUpdateOne {
+	auo.mutation.SetRawJSON(s)
+	return auo
+}
+
+// SetNillableRawJSON sets the "raw_json" field if the given value is not nil.
+func (auo *ActivityUpdateOne) SetNillableRawJSON(s *string) *ActivityUpdateOne {
+	if s != nil {
+		auo.SetRawJSON(*s)
+	}
+	return auo
+}
+
 // Mutation returns the ActivityMutation object of the builder.
 func (auo *ActivityUpdateOne) Mutation() *ActivityMutation {
 	return auo.mutation
@@ -445,6 +507,9 @@ func (auo *ActivityUpdateOne) sqlSave(ctx context.Context) (_node *Activity, err
 	if value, ok := auo.mutation.SourceUID(); ok {
 		_spec.SetField(activity.FieldSourceUID, field.TypeString, value)
 	}
+	if value, ok := auo.mutation.SourceType(); ok {
+		_spec.SetField(activity.FieldSourceType, field.TypeString, value)
+	}
 	if value, ok := auo.mutation.Title(); ok {
 		_spec.SetField(activity.FieldTitle, field.TypeString, value)
 	}
@@ -465,6 +530,9 @@ func (auo *ActivityUpdateOne) sqlSave(ctx context.Context) (_node *Activity, err
 	}
 	if value, ok := auo.mutation.FullSummary(); ok {
 		_spec.SetField(activity.FieldFullSummary, field.TypeString, value)
+	}
+	if value, ok := auo.mutation.RawJSON(); ok {
+		_spec.SetField(activity.FieldRawJSON, field.TypeString, value)
 	}
 	_node = &Activity{config: auo.config}
 	_spec.Assign = _node.assignValues

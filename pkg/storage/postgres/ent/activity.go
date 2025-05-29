@@ -21,6 +21,8 @@ type Activity struct {
 	UID string `json:"uid,omitempty"`
 	// SourceUID holds the value of the "source_uid" field.
 	SourceUID string `json:"source_uid,omitempty"`
+	// SourceType holds the value of the "source_type" field.
+	SourceType string `json:"source_type,omitempty"`
 	// Title holds the value of the "title" field.
 	Title string `json:"title,omitempty"`
 	// Body holds the value of the "body" field.
@@ -34,7 +36,9 @@ type Activity struct {
 	// ShortSummary holds the value of the "short_summary" field.
 	ShortSummary string `json:"short_summary,omitempty"`
 	// FullSummary holds the value of the "full_summary" field.
-	FullSummary  string `json:"full_summary,omitempty"`
+	FullSummary string `json:"full_summary,omitempty"`
+	// RawJSON holds the value of the "raw_json" field.
+	RawJSON      string `json:"raw_json,omitempty"`
 	selectValues sql.SelectValues
 }
 
@@ -43,7 +47,7 @@ func (*Activity) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case activity.FieldID, activity.FieldUID, activity.FieldSourceUID, activity.FieldTitle, activity.FieldBody, activity.FieldURL, activity.FieldImageURL, activity.FieldShortSummary, activity.FieldFullSummary:
+		case activity.FieldID, activity.FieldUID, activity.FieldSourceUID, activity.FieldSourceType, activity.FieldTitle, activity.FieldBody, activity.FieldURL, activity.FieldImageURL, activity.FieldShortSummary, activity.FieldFullSummary, activity.FieldRawJSON:
 			values[i] = new(sql.NullString)
 		case activity.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -79,6 +83,12 @@ func (a *Activity) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field source_uid", values[i])
 			} else if value.Valid {
 				a.SourceUID = value.String
+			}
+		case activity.FieldSourceType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field source_type", values[i])
+			} else if value.Valid {
+				a.SourceType = value.String
 			}
 		case activity.FieldTitle:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -122,6 +132,12 @@ func (a *Activity) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				a.FullSummary = value.String
 			}
+		case activity.FieldRawJSON:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field raw_json", values[i])
+			} else if value.Valid {
+				a.RawJSON = value.String
+			}
 		default:
 			a.selectValues.Set(columns[i], values[i])
 		}
@@ -164,6 +180,9 @@ func (a *Activity) String() string {
 	builder.WriteString("source_uid=")
 	builder.WriteString(a.SourceUID)
 	builder.WriteString(", ")
+	builder.WriteString("source_type=")
+	builder.WriteString(a.SourceType)
+	builder.WriteString(", ")
 	builder.WriteString("title=")
 	builder.WriteString(a.Title)
 	builder.WriteString(", ")
@@ -184,6 +203,9 @@ func (a *Activity) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("full_summary=")
 	builder.WriteString(a.FullSummary)
+	builder.WriteString(", ")
+	builder.WriteString("raw_json=")
+	builder.WriteString(a.RawJSON)
 	builder.WriteByte(')')
 	return builder.String()
 }

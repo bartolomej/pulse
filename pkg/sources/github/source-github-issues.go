@@ -2,19 +2,21 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/glanceapp/glance/pkg/sources/common"
+	"github.com/glanceapp/glance/pkg/sources/activities/types"
+
 	"github.com/google/go-github/v72/github"
 )
 
 const TypeGithubIssues = "github-issues"
 
 type SourceIssues struct {
-	Repository string `json:"repository"`
+	Repository string `json:"Repository"`
 	Token      string `json:"token"`
 	client     *github.Client
 }
@@ -39,43 +41,70 @@ func (s *SourceIssues) Type() string {
 	return TypeGithubIssues
 }
 
-type issueActivity struct {
-	repository string
-	raw        *github.Issue
-	sourceUID  string
+type Issue struct {
+	Repository string        `json:"Repository"`
+	Issue      *github.Issue `json:"issue"`
+	SourceID   string        `json:"source_id"`
 }
 
-func (i issueActivity) UID() string {
-	return fmt.Sprintf("issue-%d", i.raw.GetNumber())
+func NewIssue() *Issue {
+	return &Issue{}
 }
 
-func (i issueActivity) SourceUID() string {
-	return i.sourceUID
+func (i *Issue) SourceType() string {
+	return TypeGithubIssues
 }
 
-func (i issueActivity) Title() string {
-	return i.raw.GetTitle()
+func (i *Issue) MarshalJSON() ([]byte, error) {
+	type Alias Issue
+	return json.Marshal(&struct {
+		*Alias
+	}{
+		Alias: (*Alias)(i),
+	})
 }
 
-func (i issueActivity) Body() string {
-	return i.raw.GetBody()
+func (i *Issue) UnmarshalJSON(data []byte) error {
+	type Alias Issue
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(i),
+	}
+	return json.Unmarshal(data, &aux)
 }
 
-func (i issueActivity) URL() string {
-	return i.raw.GetHTMLURL()
+func (i *Issue) UID() string {
+	return fmt.Sprintf("issue-%d", i.Issue.GetNumber())
 }
 
-func (i issueActivity) ImageURL() string {
+func (i *Issue) SourceUID() string {
+	return i.SourceID
+}
+
+func (i *Issue) Title() string {
+	return i.Issue.GetTitle()
+}
+
+func (i *Issue) Body() string {
+	return i.Issue.GetBody()
+}
+
+func (i *Issue) URL() string {
+	return i.Issue.GetHTMLURL()
+}
+
+func (i *Issue) ImageURL() string {
 	return fmt.Sprintf(
 		"https://opengraph.githubassets.com/%d/%s/issues/%d",
-		i.raw.UpdatedAt.Unix(),
-		i.repository,
-		*i.raw.Number,
+		i.Issue.UpdatedAt.Unix(),
+		i.Repository,
+		*i.Issue.Number,
 	)
 }
 
-func (i issueActivity) CreatedAt() time.Time {
-	return i.raw.GetUpdatedAt().Time
+func (i *Issue) CreatedAt() time.Time {
+	return i.Issue.GetUpdatedAt().Time
 }
 
 func (s *SourceIssues) Initialize() error {
@@ -93,7 +122,7 @@ func (s *SourceIssues) Initialize() error {
 	return nil
 }
 
-func (s *SourceIssues) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
+func (s *SourceIssues) Stream(ctx context.Context, feed chan<- types.Activity, errs chan<- error) {
 	activities, err := s.fetchIssueActivities(ctx, s.client, s.Repository)
 
 	if err != nil {
@@ -106,12 +135,12 @@ func (s *SourceIssues) Stream(ctx context.Context, feed chan<- common.Activity, 
 	}
 }
 
-func (s *SourceIssues) fetchIssueActivities(ctx context.Context, client *github.Client, repository string) ([]issueActivity, error) {
-	activities := make([]issueActivity, 0)
+func (s *SourceIssues) fetchIssueActivities(ctx context.Context, client *github.Client, repository string) ([]*Issue, error) {
+	activities := make([]*Issue, 0)
 
 	parts := strings.Split(repository, "/")
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid repository format: %s", repository)
+		return nil, fmt.Errorf("invalid Repository format: %s", repository)
 	}
 	owner, repo := parts[0], parts[1]
 
@@ -126,10 +155,10 @@ func (s *SourceIssues) fetchIssueActivities(ctx context.Context, client *github.
 	}
 
 	for _, issue := range issues {
-		activities = append(activities, issueActivity{
-			raw:        issue,
-			sourceUID:  s.UID(),
-			repository: s.Repository,
+		activities = append(activities, &Issue{
+			Issue:      issue,
+			SourceID:   s.UID(),
+			Repository: s.Repository,
 		})
 	}
 

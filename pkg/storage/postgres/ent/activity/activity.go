@@ -15,6 +15,8 @@ const (
 	FieldUID = "uid"
 	// FieldSourceUID holds the string denoting the source_uid field in the database.
 	FieldSourceUID = "source_uid"
+	// FieldSourceType holds the string denoting the source_type field in the database.
+	FieldSourceType = "source_type"
 	// FieldTitle holds the string denoting the title field in the database.
 	FieldTitle = "title"
 	// FieldBody holds the string denoting the body field in the database.
@@ -29,6 +31,8 @@ const (
 	FieldShortSummary = "short_summary"
 	// FieldFullSummary holds the string denoting the full_summary field in the database.
 	FieldFullSummary = "full_summary"
+	// FieldRawJSON holds the string denoting the raw_json field in the database.
+	FieldRawJSON = "raw_json"
 	// Table holds the table name of the activity in the database.
 	Table = "activities"
 )
@@ -38,6 +42,7 @@ var Columns = []string{
 	FieldID,
 	FieldUID,
 	FieldSourceUID,
+	FieldSourceType,
 	FieldTitle,
 	FieldBody,
 	FieldURL,
@@ -45,6 +50,7 @@ var Columns = []string{
 	FieldCreatedAt,
 	FieldShortSummary,
 	FieldFullSummary,
+	FieldRawJSON,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -73,6 +79,11 @@ func ByUID(opts ...sql.OrderTermOption) OrderOption {
 // BySourceUID orders the results by the source_uid field.
 func BySourceUID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSourceUID, opts...).ToFunc()
+}
+
+// BySourceType orders the results by the source_type field.
+func BySourceType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSourceType, opts...).ToFunc()
 }
 
 // ByTitle orders the results by the title field.
@@ -108,4 +119,9 @@ func ByShortSummary(opts ...sql.OrderTermOption) OrderOption {
 // ByFullSummary orders the results by the full_summary field.
 func ByFullSummary(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldFullSummary, opts...).ToFunc()
+}
+
+// ByRawJSON orders the results by the raw_json field.
+func ByRawJSON(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRawJSON, opts...).ToFunc()
 }

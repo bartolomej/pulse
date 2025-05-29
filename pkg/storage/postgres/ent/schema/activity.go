@@ -14,6 +14,7 @@ func (Activity) Fields() []ent.Field {
 		field.String("id").Unique(),
 		field.String("uid").Unique(),
 		field.String("source_uid"),
+		field.String("source_type"),
 		field.String("title"),
 		field.String("body"),
 		field.String("url"),
@@ -21,6 +22,7 @@ func (Activity) Fields() []ent.Field {
 		field.Time("created_at"),
 		field.String("short_summary"),
 		field.String("full_summary"),
+		field.String("raw_json"),
 	}
 }
 

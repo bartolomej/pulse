@@ -13,6 +13,7 @@ var (
 		{Name: "id", Type: field.TypeString, Unique: true},
 		{Name: "uid", Type: field.TypeString, Unique: true},
 		{Name: "source_uid", Type: field.TypeString},
+		{Name: "source_type", Type: field.TypeString},
 		{Name: "title", Type: field.TypeString},
 		{Name: "body", Type: field.TypeString},
 		{Name: "url", Type: field.TypeString},
@@ -20,6 +21,7 @@ var (
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "short_summary", Type: field.TypeString},
 		{Name: "full_summary", Type: field.TypeString},
+		{Name: "raw_json", Type: field.TypeString},
 	}
 	// ActivitiesTable holds the schema information for the "activities" table.
 	ActivitiesTable = &schema.Table{

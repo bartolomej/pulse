@@ -3,8 +3,8 @@ package mastodon
 import (
 	"context"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/activities/types"
 
-	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/mattn/go-mastodon"
 )
 
@@ -48,7 +48,7 @@ func (s *SourceTag) Initialize() error {
 	return nil
 }
 
-func (s *SourceTag) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
+func (s *SourceTag) Stream(ctx context.Context, feed chan<- types.Activity, errs chan<- error) {
 	client := mastodon.NewClient(&mastodon.Config{
 		Server:       s.InstanceURL,
 		ClientID:     "pulse-feed-aggregation",
@@ -67,7 +67,7 @@ func (s *SourceTag) Stream(ctx context.Context, feed chan<- common.Activity, err
 	}
 }
 
-func (s *SourceTag) fetchHashtagPosts(client *mastodon.Client, limit int) ([]*mastodonPost, error) {
+func (s *SourceTag) fetchHashtagPosts(client *mastodon.Client, limit int) ([]*Post, error) {
 	statuses, err := client.GetTimelineHashtag(context.Background(), s.Tag, false, &mastodon.Pagination{
 		Limit: int64(limit),
 	})
@@ -75,9 +75,9 @@ func (s *SourceTag) fetchHashtagPosts(client *mastodon.Client, limit int) ([]*ma
 		return nil, fmt.Errorf("failed to get hashtag timeline: %w", err)
 	}
 
-	posts := make([]*mastodonPost, len(statuses))
+	posts := make([]*Post, len(statuses))
 	for i, status := range statuses {
-		posts[i] = &mastodonPost{raw: status, sourceUID: s.UID()}
+		posts[i] = &Post{Status: status, SourceTyp: s.Type(), SourceID: s.UID()}
 	}
 
 	return posts, nil

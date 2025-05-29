@@ -2,12 +2,13 @@ package changedetection
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"sort"
 	"time"
 
-	"github.com/glanceapp/glance/pkg/sources/common"
+	"github.com/glanceapp/glance/pkg/sources/activities/types"
+	"github.com/glanceapp/glance/pkg/utils"
 )
 
 const TypeChangedetectionWebsite = "changedetection-website-change"
@@ -39,7 +40,7 @@ func (s *SourceWebsiteChange) Type() string {
 	return TypeChangedetectionWebsite
 }
 
-func (s *SourceWebsiteChange) Stream(ctx context.Context, feed chan<- common.Activity, errs chan<- error) {
+func (s *SourceWebsiteChange) Stream(ctx context.Context, feed chan<- types.Activity, errs chan<- error) {
 	initial, err := s.fetchWatchFromChangeDetection()
 
 	if err != nil {
@@ -62,7 +63,7 @@ func (s *SourceWebsiteChange) Initialize() error {
 	return nil
 }
 
-type websiteChange struct {
+type WebsiteChange struct {
 	title        string
 	url          string
 	lastChanged  time.Time
@@ -71,43 +72,67 @@ type websiteChange struct {
 	sourceUID    string
 }
 
-func (c websiteChange) SourceUID() string {
+func NewWebsiteChange() *WebsiteChange {
+	return &WebsiteChange{}
+}
+
+func (c *WebsiteChange) SourceType() string {
+	return TypeChangedetectionWebsite
+}
+
+func (c *WebsiteChange) MarshalJSON() ([]byte, error) {
+	type Alias WebsiteChange
+	return json.Marshal(&struct {
+		*Alias
+		LastChanged string `json:"last_changed"`
+	}{
+		Alias:       (*Alias)(c),
+		LastChanged: c.lastChanged.Format(time.RFC3339),
+	})
+}
+
+func (c *WebsiteChange) UnmarshalJSON(data []byte) error {
+	type Alias WebsiteChange
+	aux := &struct {
+		*Alias
+		LastChanged string `json:"last_changed"`
+	}{
+		Alias: (*Alias)(c),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	c.lastChanged = utils.ParseRFC3339Time(aux.LastChanged)
+	return nil
+}
+
+func (c *WebsiteChange) SourceUID() string {
 	return c.sourceUID
 }
 
-func (c websiteChange) UID() string {
+func (c *WebsiteChange) UID() string {
 	return fmt.Sprintf("%s-%d", c.url, c.lastChanged.Unix())
 }
 
-func (c websiteChange) Title() string {
+func (c *WebsiteChange) Title() string {
 	return c.title
 }
 
-func (c websiteChange) Body() string {
+func (c *WebsiteChange) Body() string {
 	return ""
 }
 
-func (c websiteChange) URL() string {
+func (c *WebsiteChange) URL() string {
 	return c.url
 }
 
-func (c websiteChange) ImageURL() string {
+func (c *WebsiteChange) ImageURL() string {
 	// TODO(pulse): Use website favicon
 	return ""
 }
 
-func (c websiteChange) CreatedAt() time.Time {
+func (c *WebsiteChange) CreatedAt() time.Time {
 	return c.lastChanged
-}
-
-type changeDetectionWatchList []websiteChange
-
-func (r changeDetectionWatchList) sortByNewest() changeDetectionWatchList {
-	sort.Slice(r, func(i, j int) bool {
-		return r[i].lastChanged.After(r[j].lastChanged)
-	})
-
-	return r
 }
 
 type changeDetectionWatchResponseJson struct {
@@ -118,29 +143,29 @@ type changeDetectionWatchResponseJson struct {
 	PreviousHash string `json:"previous_hash"`
 }
 
-func (s *SourceWebsiteChange) fetchWatchFromChangeDetection() (websiteChange, error) {
+func (s *SourceWebsiteChange) fetchWatchFromChangeDetection() (*WebsiteChange, error) {
 	req, err := http.NewRequest(
 		"GET",
 		fmt.Sprintf("%s/api/v1/watch/%s", s.InstanceURL, s.WatchUUID),
 		nil,
 	)
 	if err != nil {
-		return websiteChange{}, err
+		return nil, err
 	}
 
 	if s.Token != "" {
 		req.Header.Add("X-API-Key", s.Token)
 	}
 
-	response, err := common.DecodeJSONFromRequest[changeDetectionWatchResponseJson](common.DefaultHTTPClient, req)
+	response, err := utils.DecodeJSONFromRequest[changeDetectionWatchResponseJson](utils.DefaultHTTPClient, req)
 	if err != nil {
-		return websiteChange{}, err
+		return nil, err
 	}
 
-	return websiteChange{
+	return &WebsiteChange{
 		title:        response.Title,
 		url:          response.URL,
-		lastChanged:  common.ParseRFC3339Time(response.LastChanged),
+		lastChanged:  utils.ParseRFC3339Time(response.LastChanged),
 		diffURL:      response.DiffURL,
 		previousHash: response.PreviousHash,
 		sourceUID:    s.UID(),

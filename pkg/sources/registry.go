@@ -3,10 +3,10 @@ package sources
 import (
 	"context"
 	"fmt"
+	"github.com/glanceapp/glance/pkg/sources/activities/types"
 	"sort"
 	"sync"
 
-	"github.com/glanceapp/glance/pkg/sources/common"
 	"github.com/rs/zerolog"
 )
 
@@ -15,7 +15,7 @@ type Registry struct {
 	activityRepo activityStore
 
 	cancelBySourceID sync.Map
-	activityQueue    chan common.Activity
+	activityQueue    chan types.Activity
 	errorQueue       chan error
 	done             chan struct{}
 
@@ -31,13 +31,13 @@ type sourceStore interface {
 }
 
 type activityStore interface {
-	Add(activity common.DecoratedActivity) error
+	Add(activity types.DecoratedActivity) error
 	Remove(uid string) error
-	List() ([]common.DecoratedActivity, error)
+	List() ([]types.DecoratedActivity, error)
 }
 
 type summarizer interface {
-	Summarize(ctx context.Context, activity common.Activity) (*common.ActivitySummary, error)
+	Summarize(ctx context.Context, activity types.Activity) (*types.ActivitySummary, error)
 }
 
 func NewRegistry(
@@ -49,7 +49,7 @@ func NewRegistry(
 	r := &Registry{
 		activityRepo:  activityRepo,
 		sourceRepo:    sourceRepo,
-		activityQueue: make(chan common.Activity),
+		activityQueue: make(chan types.Activity),
 		errorQueue:    make(chan error),
 		done:          make(chan struct{}),
 		logger:        logger,
@@ -116,7 +116,7 @@ func (r *Registry) Source(uid string) (Source, error) {
 	return r.sourceRepo.GetByID(uid)
 }
 
-func (r *Registry) Activities() ([]common.DecoratedActivity, error) {
+func (r *Registry) Activities() ([]types.DecoratedActivity, error) {
 	matches, err := r.activityRepo.List()
 	if err != nil {
 		return nil, fmt.Errorf("repo list: %w", err)
@@ -129,13 +129,13 @@ func (r *Registry) Activities() ([]common.DecoratedActivity, error) {
 	return matches, nil
 }
 
-func (r *Registry) ActivitiesBySource(sourceUID string) ([]common.DecoratedActivity, error) {
+func (r *Registry) ActivitiesBySource(sourceUID string) ([]types.DecoratedActivity, error) {
 	activities, err := r.Activities()
 	if err != nil {
 		return nil, fmt.Errorf("list activities: %w", err)
 	}
 
-	matches := make([]common.DecoratedActivity, 0)
+	matches := make([]types.DecoratedActivity, 0)
 	for _, a := range activities {
 		if a.SourceUID() == sourceUID {
 			matches = append(matches, a)
@@ -166,7 +166,7 @@ func (r *Registry) startWorkers(nWorkers int) {
 						continue
 					}
 
-					err = r.activityRepo.Add(common.DecoratedActivity{
+					err = r.activityRepo.Add(types.DecoratedActivity{
 						Activity: act,
 						Summary:  summary,
 					})
