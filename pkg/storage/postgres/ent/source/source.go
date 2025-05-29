@@ -17,8 +17,8 @@ const (
 	FieldURL = "url"
 	// FieldType holds the string denoting the type field in the database.
 	FieldType = "type"
-	// FieldConfigJSON holds the string denoting the config_json field in the database.
-	FieldConfigJSON = "config_json"
+	// FieldRawJSON holds the string denoting the raw_json field in the database.
+	FieldRawJSON = "raw_json"
 	// Table holds the table name of the source in the database.
 	Table = "sources"
 )
@@ -29,7 +29,7 @@ var Columns = []string{
 	FieldName,
 	FieldURL,
 	FieldType,
-	FieldConfigJSON,
+	FieldRawJSON,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -65,7 +65,7 @@ func ByType(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldType, opts...).ToFunc()
 }
 
-// ByConfigJSON orders the results by the config_json field.
-func ByConfigJSON(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldConfigJSON, opts...).ToFunc()
+// ByRawJSON orders the results by the raw_json field.
+func ByRawJSON(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRawJSON, opts...).ToFunc()
 }

@@ -50,7 +50,7 @@ var widgetBaseContentTemplate = web.MustParseTemplate("widget-base-content.html"
 
 type renderData struct {
 	*widgetBase
-	Activities []types.DecoratedActivity
+	Activities []*types.DecoratedActivity
 }
 
 func (w *widgetBase) Render(registry *sources.Registry) template.HTML {

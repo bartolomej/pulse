@@ -21,9 +21,9 @@ func NewSourceRepository(db *DB) *SourceRepository {
 func (r *SourceRepository) Add(s sources.Source) error {
 	ctx := context.Background()
 
-	configBytes, err := json.Marshal(s)
+	rawJson, err := json.Marshal(s)
 	if err != nil {
-		return fmt.Errorf("marshal source config: %w", err)
+		return fmt.Errorf("marshal source: %w", err)
 	}
 
 	_, err = r.db.Client().Source.Create().
@@ -31,7 +31,7 @@ func (r *SourceRepository) Add(s sources.Source) error {
 		SetName(s.Name()).
 		SetURL(s.URL()).
 		SetType(s.Type()).
-		SetConfigJSON(string(configBytes)).
+		SetRawJSON(string(rawJson)).
 		Save(ctx)
 
 	return err
@@ -52,15 +52,11 @@ func (r *SourceRepository) List() ([]sources.Source, error) {
 
 	result := make([]sources.Source, len(sourcesEnt))
 	for i, s := range sourcesEnt {
-		configStr := ""
-		if s.ConfigJSON != nil {
-			configStr = *s.ConfigJSON
-		}
-		src, err := sourceFromEnt(s.Type, configStr)
+		out, err := sourceFromEnt(s)
 		if err != nil {
 			return nil, fmt.Errorf("deserialize source: %w", err)
 		}
-		result[i] = src
+		result[i] = out
 	}
 
 	return result, nil
@@ -77,20 +73,17 @@ func (r *SourceRepository) GetByID(uid string) (sources.Source, error) {
 		return nil, err
 	}
 
-	configStr := ""
-	if s.ConfigJSON != nil {
-		configStr = *s.ConfigJSON
-	}
-	return sourceFromEnt(s.Type, configStr)
+	return sourceFromEnt(s)
 }
 
-func sourceFromEnt(typeName, config string) (sources.Source, error) {
-	src, err := sources.NewSource(typeName)
+func sourceFromEnt(in *ent.Source) (sources.Source, error) {
+	out, err := sources.NewSource(in.Type)
 	if err != nil {
 		return nil, fmt.Errorf("new source: %w", err)
 	}
-	if err := json.Unmarshal([]byte(config), src); err != nil {
-		return nil, fmt.Errorf("unmarshal config: %w", err)
+	err = out.UnmarshalJSON([]byte(in.RawJSON))
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal source: %w", err)
 	}
-	return src, nil
+	return out, nil
 }

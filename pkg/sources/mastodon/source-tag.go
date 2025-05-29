@@ -2,7 +2,9 @@ package mastodon
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+
 	"github.com/glanceapp/glance/pkg/sources/activities/types"
 
 	"github.com/mattn/go-mastodon"
@@ -81,4 +83,29 @@ func (s *SourceTag) fetchHashtagPosts(client *mastodon.Client, limit int) ([]*Po
 	}
 
 	return posts, nil
+}
+
+func (s *SourceTag) MarshalJSON() ([]byte, error) {
+	type Alias SourceTag
+	return json.Marshal(&struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+		Type:  s.Type(),
+	})
+}
+
+func (s *SourceTag) UnmarshalJSON(data []byte) error {
+	type Alias SourceTag
+	aux := &struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	return nil
 }

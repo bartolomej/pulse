@@ -18,7 +18,7 @@ func NewActivityRepository(db *DB) *ActivityRepository {
 	return &ActivityRepository{db: db}
 }
 
-func (r *ActivityRepository) Add(activity types.DecoratedActivity) error {
+func (r *ActivityRepository) Add(activity *types.DecoratedActivity) error {
 	ctx := context.Background()
 
 	rawJson, err := activity.MarshalJSON()
@@ -49,7 +49,7 @@ func (r *ActivityRepository) Remove(uid string) error {
 	return r.db.Client().Activity.DeleteOneID(uid).Exec(ctx)
 }
 
-func (r *ActivityRepository) List() ([]types.DecoratedActivity, error) {
+func (r *ActivityRepository) List() ([]*types.DecoratedActivity, error) {
 	ctx := context.Background()
 
 	results, err := r.db.Client().Activity.Query().
@@ -59,26 +59,34 @@ func (r *ActivityRepository) List() ([]types.DecoratedActivity, error) {
 		return nil, err
 	}
 
-	result := make([]types.DecoratedActivity, len(results))
+	result := make([]*types.DecoratedActivity, len(results))
 	for i, a := range results {
-		act, err := activities.NewActivity(a.SourceType)
+		out, err := activityFromEnt(a)
 		if err != nil {
-			return nil, fmt.Errorf("new activity: %w", err)
+			return nil, fmt.Errorf("deserialize activity: %w", err)
 		}
-
-		err = act.UnmarshalJSON([]byte(a.RawJSON))
-		if err != nil {
-			return nil, fmt.Errorf("unmarshal activity: %w", err)
-		}
-
-		result[i] = types.DecoratedActivity{
-			Activity: act,
-			Summary: &types.ActivitySummary{
-				ShortSummary: a.ShortSummary,
-				FullSummary:  a.FullSummary,
-			},
-		}
+		result[i] = out
 	}
 
 	return result, nil
+}
+
+func activityFromEnt(in *ent.Activity) (*types.DecoratedActivity, error) {
+	act, err := activities.NewActivity(in.SourceType)
+	if err != nil {
+		return nil, fmt.Errorf("new activity: %w", err)
+	}
+
+	err = act.UnmarshalJSON([]byte(in.RawJSON))
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal activity: %w", err)
+	}
+
+	return &types.DecoratedActivity{
+		Activity: act,
+		Summary: &types.ActivitySummary{
+			ShortSummary: in.ShortSummary,
+			FullSummary:  in.FullSummary,
+		},
+	}, nil
 }

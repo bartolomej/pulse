@@ -290,7 +290,7 @@ func deserializeCreateSourceRequest(req CreateSourceRequest) (sources.Source, er
 	return source, nil
 }
 
-func serializeActivities(in []types.DecoratedActivity) []Activity {
+func serializeActivities(in []*types.DecoratedActivity) []Activity {
 	out := make([]Activity, 0, len(in))
 
 	for _, e := range in {
@@ -300,7 +300,7 @@ func serializeActivities(in []types.DecoratedActivity) []Activity {
 	return out
 }
 
-func serializeActivity(in types.DecoratedActivity) Activity {
+func serializeActivity(in *types.DecoratedActivity) Activity {
 	return Activity{
 		Body:         in.Body(),
 		CreatedAt:    in.CreatedAt(),

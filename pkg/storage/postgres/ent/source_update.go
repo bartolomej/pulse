@@ -69,23 +69,17 @@ func (su *SourceUpdate) SetNillableType(s *string) *SourceUpdate {
 	return su
 }
 
-// SetConfigJSON sets the "config_json" field.
-func (su *SourceUpdate) SetConfigJSON(s string) *SourceUpdate {
-	su.mutation.SetConfigJSON(s)
+// SetRawJSON sets the "raw_json" field.
+func (su *SourceUpdate) SetRawJSON(s string) *SourceUpdate {
+	su.mutation.SetRawJSON(s)
 	return su
 }
 
-// SetNillableConfigJSON sets the "config_json" field if the given value is not nil.
-func (su *SourceUpdate) SetNillableConfigJSON(s *string) *SourceUpdate {
+// SetNillableRawJSON sets the "raw_json" field if the given value is not nil.
+func (su *SourceUpdate) SetNillableRawJSON(s *string) *SourceUpdate {
 	if s != nil {
-		su.SetConfigJSON(*s)
+		su.SetRawJSON(*s)
 	}
-	return su
-}
-
-// ClearConfigJSON clears the value of the "config_json" field.
-func (su *SourceUpdate) ClearConfigJSON() *SourceUpdate {
-	su.mutation.ClearConfigJSON()
 	return su
 }
 
@@ -139,11 +133,8 @@ func (su *SourceUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := su.mutation.GetType(); ok {
 		_spec.SetField(source.FieldType, field.TypeString, value)
 	}
-	if value, ok := su.mutation.ConfigJSON(); ok {
-		_spec.SetField(source.FieldConfigJSON, field.TypeString, value)
-	}
-	if su.mutation.ConfigJSONCleared() {
-		_spec.ClearField(source.FieldConfigJSON, field.TypeString)
+	if value, ok := su.mutation.RawJSON(); ok {
+		_spec.SetField(source.FieldRawJSON, field.TypeString, value)
 	}
 	if n, err = sqlgraph.UpdateNodes(ctx, su.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -207,23 +198,17 @@ func (suo *SourceUpdateOne) SetNillableType(s *string) *SourceUpdateOne {
 	return suo
 }
 
-// SetConfigJSON sets the "config_json" field.
-func (suo *SourceUpdateOne) SetConfigJSON(s string) *SourceUpdateOne {
-	suo.mutation.SetConfigJSON(s)
+// SetRawJSON sets the "raw_json" field.
+func (suo *SourceUpdateOne) SetRawJSON(s string) *SourceUpdateOne {
+	suo.mutation.SetRawJSON(s)
 	return suo
 }
 
-// SetNillableConfigJSON sets the "config_json" field if the given value is not nil.
-func (suo *SourceUpdateOne) SetNillableConfigJSON(s *string) *SourceUpdateOne {
+// SetNillableRawJSON sets the "raw_json" field if the given value is not nil.
+func (suo *SourceUpdateOne) SetNillableRawJSON(s *string) *SourceUpdateOne {
 	if s != nil {
-		suo.SetConfigJSON(*s)
+		suo.SetRawJSON(*s)
 	}
-	return suo
-}
-
-// ClearConfigJSON clears the value of the "config_json" field.
-func (suo *SourceUpdateOne) ClearConfigJSON() *SourceUpdateOne {
-	suo.mutation.ClearConfigJSON()
 	return suo
 }
 
@@ -307,11 +292,8 @@ func (suo *SourceUpdateOne) sqlSave(ctx context.Context) (_node *Source, err err
 	if value, ok := suo.mutation.GetType(); ok {
 		_spec.SetField(source.FieldType, field.TypeString, value)
 	}
-	if value, ok := suo.mutation.ConfigJSON(); ok {
-		_spec.SetField(source.FieldConfigJSON, field.TypeString, value)
-	}
-	if suo.mutation.ConfigJSONCleared() {
-		_spec.ClearField(source.FieldConfigJSON, field.TypeString)
+	if value, ok := suo.mutation.RawJSON(); ok {
+		_spec.SetField(source.FieldRawJSON, field.TypeString, value)
 	}
 	_node = &Source{config: suo.config}
 	_spec.Assign = _node.assignValues

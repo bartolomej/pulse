@@ -22,8 +22,8 @@ type Source struct {
 	URL string `json:"url,omitempty"`
 	// Type holds the value of the "type" field.
 	Type string `json:"type,omitempty"`
-	// ConfigJSON holds the value of the "config_json" field.
-	ConfigJSON   *string `json:"config_json,omitempty"`
+	// RawJSON holds the value of the "raw_json" field.
+	RawJSON      string `json:"raw_json,omitempty"`
 	selectValues sql.SelectValues
 }
 
@@ -32,7 +32,7 @@ func (*Source) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case source.FieldID, source.FieldName, source.FieldURL, source.FieldType, source.FieldConfigJSON:
+		case source.FieldID, source.FieldName, source.FieldURL, source.FieldType, source.FieldRawJSON:
 			values[i] = new(sql.NullString)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -73,12 +73,11 @@ func (s *Source) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				s.Type = value.String
 			}
-		case source.FieldConfigJSON:
+		case source.FieldRawJSON:
 			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field config_json", values[i])
+				return fmt.Errorf("unexpected type %T for field raw_json", values[i])
 			} else if value.Valid {
-				s.ConfigJSON = new(string)
-				*s.ConfigJSON = value.String
+				s.RawJSON = value.String
 			}
 		default:
 			s.selectValues.Set(columns[i], values[i])
@@ -125,10 +124,8 @@ func (s *Source) String() string {
 	builder.WriteString("type=")
 	builder.WriteString(s.Type)
 	builder.WriteString(", ")
-	if v := s.ConfigJSON; v != nil {
-		builder.WriteString("config_json=")
-		builder.WriteString(*v)
-	}
+	builder.WriteString("raw_json=")
+	builder.WriteString(s.RawJSON)
 	builder.WriteByte(')')
 	return builder.String()
 }

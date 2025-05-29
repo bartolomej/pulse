@@ -31,9 +31,9 @@ type sourceStore interface {
 }
 
 type activityStore interface {
-	Add(activity types.DecoratedActivity) error
+	Add(activity *types.DecoratedActivity) error
 	Remove(uid string) error
-	List() ([]types.DecoratedActivity, error)
+	List() ([]*types.DecoratedActivity, error)
 }
 
 type summarizer interface {
@@ -116,7 +116,7 @@ func (r *Registry) Source(uid string) (Source, error) {
 	return r.sourceRepo.GetByID(uid)
 }
 
-func (r *Registry) Activities() ([]types.DecoratedActivity, error) {
+func (r *Registry) Activities() ([]*types.DecoratedActivity, error) {
 	matches, err := r.activityRepo.List()
 	if err != nil {
 		return nil, fmt.Errorf("repo list: %w", err)
@@ -129,13 +129,13 @@ func (r *Registry) Activities() ([]types.DecoratedActivity, error) {
 	return matches, nil
 }
 
-func (r *Registry) ActivitiesBySource(sourceUID string) ([]types.DecoratedActivity, error) {
+func (r *Registry) ActivitiesBySource(sourceUID string) ([]*types.DecoratedActivity, error) {
 	activities, err := r.Activities()
 	if err != nil {
 		return nil, fmt.Errorf("list activities: %w", err)
 	}
 
-	matches := make([]types.DecoratedActivity, 0)
+	matches := make([]*types.DecoratedActivity, 0)
 	for _, a := range activities {
 		if a.SourceUID() == sourceUID {
 			matches = append(matches, a)
@@ -166,7 +166,7 @@ func (r *Registry) startWorkers(nWorkers int) {
 						continue
 					}
 
-					err = r.activityRepo.Add(types.DecoratedActivity{
+					err = r.activityRepo.Add(&types.DecoratedActivity{
 						Activity: act,
 						Summary:  summary,
 					})

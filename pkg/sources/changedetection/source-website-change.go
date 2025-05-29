@@ -63,6 +63,31 @@ func (s *SourceWebsiteChange) Initialize() error {
 	return nil
 }
 
+func (s *SourceWebsiteChange) MarshalJSON() ([]byte, error) {
+	type Alias SourceWebsiteChange
+	return json.Marshal(&struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+		Type:  s.Type(),
+	})
+}
+
+func (s *SourceWebsiteChange) UnmarshalJSON(data []byte) error {
+	type Alias SourceWebsiteChange
+	aux := &struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	return nil
+}
+
 type WebsiteChange struct {
 	title        string
 	url          string

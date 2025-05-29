@@ -15,7 +15,7 @@ func (Source) Fields() []ent.Field {
 		field.String("name"),
 		field.String("url"),
 		field.String("type"),
-		field.String("config_json").Optional().Nillable(),
+		field.String("raw_json"),
 	}
 }
 

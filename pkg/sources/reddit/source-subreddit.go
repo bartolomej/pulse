@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/glanceapp/glance/pkg/sources/activities/types"
 	"html"
 	"log/slog"
 	"strings"
 	"time"
+
+	"github.com/glanceapp/glance/pkg/sources/activities/types"
 
 	"github.com/go-shiori/go-readability"
 	"github.com/vartanbeno/go-reddit/v2/reddit"
@@ -237,4 +238,29 @@ func (s *SourceSubreddit) fetchSubredditPosts(ctx context.Context) ([]*Post, err
 	}
 
 	return redditPosts, nil
+}
+
+func (s *SourceSubreddit) MarshalJSON() ([]byte, error) {
+	type Alias SourceSubreddit
+	return json.Marshal(&struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+		Type:  s.Type(),
+	})
+}
+
+func (s *SourceSubreddit) UnmarshalJSON(data []byte) error {
+	type Alias SourceSubreddit
+	aux := &struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	return nil
 }

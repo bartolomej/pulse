@@ -35,7 +35,7 @@ var (
 		{Name: "name", Type: field.TypeString},
 		{Name: "url", Type: field.TypeString},
 		{Name: "type", Type: field.TypeString},
-		{Name: "config_json", Type: field.TypeString, Nullable: true},
+		{Name: "raw_json", Type: field.TypeString},
 	}
 	// SourcesTable holds the schema information for the "sources" table.
 	SourcesTable = &schema.Table{

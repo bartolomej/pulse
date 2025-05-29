@@ -37,17 +37,9 @@ func (sc *SourceCreate) SetType(s string) *SourceCreate {
 	return sc
 }
 
-// SetConfigJSON sets the "config_json" field.
-func (sc *SourceCreate) SetConfigJSON(s string) *SourceCreate {
-	sc.mutation.SetConfigJSON(s)
-	return sc
-}
-
-// SetNillableConfigJSON sets the "config_json" field if the given value is not nil.
-func (sc *SourceCreate) SetNillableConfigJSON(s *string) *SourceCreate {
-	if s != nil {
-		sc.SetConfigJSON(*s)
-	}
+// SetRawJSON sets the "raw_json" field.
+func (sc *SourceCreate) SetRawJSON(s string) *SourceCreate {
+	sc.mutation.SetRawJSON(s)
 	return sc
 }
 
@@ -100,6 +92,9 @@ func (sc *SourceCreate) check() error {
 	if _, ok := sc.mutation.GetType(); !ok {
 		return &ValidationError{Name: "type", err: errors.New(`ent: missing required field "Source.type"`)}
 	}
+	if _, ok := sc.mutation.RawJSON(); !ok {
+		return &ValidationError{Name: "raw_json", err: errors.New(`ent: missing required field "Source.raw_json"`)}
+	}
 	return nil
 }
 
@@ -147,9 +142,9 @@ func (sc *SourceCreate) createSpec() (*Source, *sqlgraph.CreateSpec) {
 		_spec.SetField(source.FieldType, field.TypeString, value)
 		_node.Type = value
 	}
-	if value, ok := sc.mutation.ConfigJSON(); ok {
-		_spec.SetField(source.FieldConfigJSON, field.TypeString, value)
-		_node.ConfigJSON = &value
+	if value, ok := sc.mutation.RawJSON(); ok {
+		_spec.SetField(source.FieldRawJSON, field.TypeString, value)
+		_node.RawJSON = value
 	}
 	return _node, _spec
 }

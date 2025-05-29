@@ -2,6 +2,7 @@ package sources
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/glanceapp/glance/pkg/sources/activities/types"
 
@@ -46,6 +47,8 @@ func NewSource(sourceType string) (Source, error) {
 }
 
 type Source interface {
+	json.Marshaler
+	json.Unmarshaler
 	UID() string
 	Type() string
 	// Name is a human-readable UID.

@@ -41,6 +41,31 @@ func (s *SourceIssues) Type() string {
 	return TypeGithubIssues
 }
 
+func (s *SourceIssues) MarshalJSON() ([]byte, error) {
+	type Alias SourceIssues
+	return json.Marshal(&struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+		Type:  s.Type(),
+	})
+}
+
+func (s *SourceIssues) UnmarshalJSON(data []byte) error {
+	type Alias SourceIssues
+	aux := &struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	return nil
+}
+
 type Issue struct {
 	Repository string        `json:"Repository"`
 	Issue      *github.Issue `json:"issue"`

@@ -188,3 +188,28 @@ func (s *SourcePosts) fetchHackerNewsPosts(ctx context.Context) ([]*Post, error)
 
 	return posts, nil
 }
+
+func (s *SourcePosts) MarshalJSON() ([]byte, error) {
+	type Alias SourcePosts
+	return json.Marshal(&struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+		Type:  s.Type(),
+	})
+}
+
+func (s *SourcePosts) UnmarshalJSON(data []byte) error {
+	type Alias SourcePosts
+	aux := &struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	return nil
+}

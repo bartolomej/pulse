@@ -910,7 +910,7 @@ type SourceMutation struct {
 	name          *string
 	url           *string
 	_type         *string
-	config_json   *string
+	raw_json      *string
 	clearedFields map[string]struct{}
 	done          bool
 	oldValue      func(context.Context) (*Source, error)
@@ -1129,53 +1129,40 @@ func (m *SourceMutation) ResetType() {
 	m._type = nil
 }
 
-// SetConfigJSON sets the "config_json" field.
-func (m *SourceMutation) SetConfigJSON(s string) {
-	m.config_json = &s
+// SetRawJSON sets the "raw_json" field.
+func (m *SourceMutation) SetRawJSON(s string) {
+	m.raw_json = &s
 }
 
-// ConfigJSON returns the value of the "config_json" field in the mutation.
-func (m *SourceMutation) ConfigJSON() (r string, exists bool) {
-	v := m.config_json
+// RawJSON returns the value of the "raw_json" field in the mutation.
+func (m *SourceMutation) RawJSON() (r string, exists bool) {
+	v := m.raw_json
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldConfigJSON returns the old "config_json" field's value of the Source entity.
+// OldRawJSON returns the old "raw_json" field's value of the Source entity.
 // If the Source object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *SourceMutation) OldConfigJSON(ctx context.Context) (v *string, err error) {
+func (m *SourceMutation) OldRawJSON(ctx context.Context) (v string, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldConfigJSON is only allowed on UpdateOne operations")
+		return v, errors.New("OldRawJSON is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldConfigJSON requires an ID field in the mutation")
+		return v, errors.New("OldRawJSON requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldConfigJSON: %w", err)
+		return v, fmt.Errorf("querying old value for OldRawJSON: %w", err)
 	}
-	return oldValue.ConfigJSON, nil
+	return oldValue.RawJSON, nil
 }
 
-// ClearConfigJSON clears the value of the "config_json" field.
-func (m *SourceMutation) ClearConfigJSON() {
-	m.config_json = nil
-	m.clearedFields[source.FieldConfigJSON] = struct{}{}
-}
-
-// ConfigJSONCleared returns if the "config_json" field was cleared in this mutation.
-func (m *SourceMutation) ConfigJSONCleared() bool {
-	_, ok := m.clearedFields[source.FieldConfigJSON]
-	return ok
-}
-
-// ResetConfigJSON resets all changes to the "config_json" field.
-func (m *SourceMutation) ResetConfigJSON() {
-	m.config_json = nil
-	delete(m.clearedFields, source.FieldConfigJSON)
+// ResetRawJSON resets all changes to the "raw_json" field.
+func (m *SourceMutation) ResetRawJSON() {
+	m.raw_json = nil
 }
 
 // Where appends a list predicates to the SourceMutation builder.
@@ -1222,8 +1209,8 @@ func (m *SourceMutation) Fields() []string {
 	if m._type != nil {
 		fields = append(fields, source.FieldType)
 	}
-	if m.config_json != nil {
-		fields = append(fields, source.FieldConfigJSON)
+	if m.raw_json != nil {
+		fields = append(fields, source.FieldRawJSON)
 	}
 	return fields
 }
@@ -1239,8 +1226,8 @@ func (m *SourceMutation) Field(name string) (ent.Value, bool) {
 		return m.URL()
 	case source.FieldType:
 		return m.GetType()
-	case source.FieldConfigJSON:
-		return m.ConfigJSON()
+	case source.FieldRawJSON:
+		return m.RawJSON()
 	}
 	return nil, false
 }
@@ -1256,8 +1243,8 @@ func (m *SourceMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldURL(ctx)
 	case source.FieldType:
 		return m.OldType(ctx)
-	case source.FieldConfigJSON:
-		return m.OldConfigJSON(ctx)
+	case source.FieldRawJSON:
+		return m.OldRawJSON(ctx)
 	}
 	return nil, fmt.Errorf("unknown Source field %s", name)
 }
@@ -1288,12 +1275,12 @@ func (m *SourceMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetType(v)
 		return nil
-	case source.FieldConfigJSON:
+	case source.FieldRawJSON:
 		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetConfigJSON(v)
+		m.SetRawJSON(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Source field %s", name)
@@ -1324,11 +1311,7 @@ func (m *SourceMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *SourceMutation) ClearedFields() []string {
-	var fields []string
-	if m.FieldCleared(source.FieldConfigJSON) {
-		fields = append(fields, source.FieldConfigJSON)
-	}
-	return fields
+	return nil
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -1341,11 +1324,6 @@ func (m *SourceMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *SourceMutation) ClearField(name string) error {
-	switch name {
-	case source.FieldConfigJSON:
-		m.ClearConfigJSON()
-		return nil
-	}
 	return fmt.Errorf("unknown Source nullable field %s", name)
 }
 
@@ -1362,8 +1340,8 @@ func (m *SourceMutation) ResetField(name string) error {
 	case source.FieldType:
 		m.ResetType()
 		return nil
-	case source.FieldConfigJSON:
-		m.ResetConfigJSON()
+	case source.FieldRawJSON:
+		m.ResetRawJSON()
 		return nil
 	}
 	return fmt.Errorf("unknown Source field %s", name)

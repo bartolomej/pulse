@@ -2,7 +2,9 @@ package mastodon
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+
 	"github.com/glanceapp/glance/pkg/sources/activities/types"
 
 	"github.com/mattn/go-mastodon"
@@ -94,4 +96,29 @@ func (s *SourceAccount) fetchAccountPosts(ctx context.Context, accountID mastodo
 	}
 
 	return posts, nil
+}
+
+func (s *SourceAccount) MarshalJSON() ([]byte, error) {
+	type Alias SourceAccount
+	return json.Marshal(&struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+		Type:  s.Type(),
+	})
+}
+
+func (s *SourceAccount) UnmarshalJSON(data []byte) error {
+	type Alias SourceAccount
+	aux := &struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	return nil
 }

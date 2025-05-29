@@ -272,3 +272,28 @@ func shortenFeedDescriptionLen(description string, maxLen int) string {
 
 	return description
 }
+
+func (s *SourceFeed) MarshalJSON() ([]byte, error) {
+	type Alias SourceFeed
+	return json.Marshal(&struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+		Type:  s.Type(),
+	})
+}
+
+func (s *SourceFeed) UnmarshalJSON(data []byte) error {
+	type Alias SourceFeed
+	aux := &struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	return nil
+}

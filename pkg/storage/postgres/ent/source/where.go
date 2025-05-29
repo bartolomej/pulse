@@ -77,9 +77,9 @@ func Type(v string) predicate.Source {
 	return predicate.Source(sql.FieldEQ(FieldType, v))
 }
 
-// ConfigJSON applies equality check predicate on the "config_json" field. It's identical to ConfigJSONEQ.
-func ConfigJSON(v string) predicate.Source {
-	return predicate.Source(sql.FieldEQ(FieldConfigJSON, v))
+// RawJSON applies equality check predicate on the "raw_json" field. It's identical to RawJSONEQ.
+func RawJSON(v string) predicate.Source {
+	return predicate.Source(sql.FieldEQ(FieldRawJSON, v))
 }
 
 // NameEQ applies the EQ predicate on the "name" field.
@@ -277,79 +277,69 @@ func TypeContainsFold(v string) predicate.Source {
 	return predicate.Source(sql.FieldContainsFold(FieldType, v))
 }
 
-// ConfigJSONEQ applies the EQ predicate on the "config_json" field.
-func ConfigJSONEQ(v string) predicate.Source {
-	return predicate.Source(sql.FieldEQ(FieldConfigJSON, v))
+// RawJSONEQ applies the EQ predicate on the "raw_json" field.
+func RawJSONEQ(v string) predicate.Source {
+	return predicate.Source(sql.FieldEQ(FieldRawJSON, v))
 }
 
-// ConfigJSONNEQ applies the NEQ predicate on the "config_json" field.
-func ConfigJSONNEQ(v string) predicate.Source {
-	return predicate.Source(sql.FieldNEQ(FieldConfigJSON, v))
+// RawJSONNEQ applies the NEQ predicate on the "raw_json" field.
+func RawJSONNEQ(v string) predicate.Source {
+	return predicate.Source(sql.FieldNEQ(FieldRawJSON, v))
 }
 
-// ConfigJSONIn applies the In predicate on the "config_json" field.
-func ConfigJSONIn(vs ...string) predicate.Source {
-	return predicate.Source(sql.FieldIn(FieldConfigJSON, vs...))
+// RawJSONIn applies the In predicate on the "raw_json" field.
+func RawJSONIn(vs ...string) predicate.Source {
+	return predicate.Source(sql.FieldIn(FieldRawJSON, vs...))
 }
 
-// ConfigJSONNotIn applies the NotIn predicate on the "config_json" field.
-func ConfigJSONNotIn(vs ...string) predicate.Source {
-	return predicate.Source(sql.FieldNotIn(FieldConfigJSON, vs...))
+// RawJSONNotIn applies the NotIn predicate on the "raw_json" field.
+func RawJSONNotIn(vs ...string) predicate.Source {
+	return predicate.Source(sql.FieldNotIn(FieldRawJSON, vs...))
 }
 
-// ConfigJSONGT applies the GT predicate on the "config_json" field.
-func ConfigJSONGT(v string) predicate.Source {
-	return predicate.Source(sql.FieldGT(FieldConfigJSON, v))
+// RawJSONGT applies the GT predicate on the "raw_json" field.
+func RawJSONGT(v string) predicate.Source {
+	return predicate.Source(sql.FieldGT(FieldRawJSON, v))
 }
 
-// ConfigJSONGTE applies the GTE predicate on the "config_json" field.
-func ConfigJSONGTE(v string) predicate.Source {
-	return predicate.Source(sql.FieldGTE(FieldConfigJSON, v))
+// RawJSONGTE applies the GTE predicate on the "raw_json" field.
+func RawJSONGTE(v string) predicate.Source {
+	return predicate.Source(sql.FieldGTE(FieldRawJSON, v))
 }
 
-// ConfigJSONLT applies the LT predicate on the "config_json" field.
-func ConfigJSONLT(v string) predicate.Source {
-	return predicate.Source(sql.FieldLT(FieldConfigJSON, v))
+// RawJSONLT applies the LT predicate on the "raw_json" field.
+func RawJSONLT(v string) predicate.Source {
+	return predicate.Source(sql.FieldLT(FieldRawJSON, v))
 }
 
-// ConfigJSONLTE applies the LTE predicate on the "config_json" field.
-func ConfigJSONLTE(v string) predicate.Source {
-	return predicate.Source(sql.FieldLTE(FieldConfigJSON, v))
+// RawJSONLTE applies the LTE predicate on the "raw_json" field.
+func RawJSONLTE(v string) predicate.Source {
+	return predicate.Source(sql.FieldLTE(FieldRawJSON, v))
 }
 
-// ConfigJSONContains applies the Contains predicate on the "config_json" field.
-func ConfigJSONContains(v string) predicate.Source {
-	return predicate.Source(sql.FieldContains(FieldConfigJSON, v))
+// RawJSONContains applies the Contains predicate on the "raw_json" field.
+func RawJSONContains(v string) predicate.Source {
+	return predicate.Source(sql.FieldContains(FieldRawJSON, v))
 }
 
-// ConfigJSONHasPrefix applies the HasPrefix predicate on the "config_json" field.
-func ConfigJSONHasPrefix(v string) predicate.Source {
-	return predicate.Source(sql.FieldHasPrefix(FieldConfigJSON, v))
+// RawJSONHasPrefix applies the HasPrefix predicate on the "raw_json" field.
+func RawJSONHasPrefix(v string) predicate.Source {
+	return predicate.Source(sql.FieldHasPrefix(FieldRawJSON, v))
 }
 
-// ConfigJSONHasSuffix applies the HasSuffix predicate on the "config_json" field.
-func ConfigJSONHasSuffix(v string) predicate.Source {
-	return predicate.Source(sql.FieldHasSuffix(FieldConfigJSON, v))
+// RawJSONHasSuffix applies the HasSuffix predicate on the "raw_json" field.
+func RawJSONHasSuffix(v string) predicate.Source {
+	return predicate.Source(sql.FieldHasSuffix(FieldRawJSON, v))
 }
 
-// ConfigJSONIsNil applies the IsNil predicate on the "config_json" field.
-func ConfigJSONIsNil() predicate.Source {
-	return predicate.Source(sql.FieldIsNull(FieldConfigJSON))
+// RawJSONEqualFold applies the EqualFold predicate on the "raw_json" field.
+func RawJSONEqualFold(v string) predicate.Source {
+	return predicate.Source(sql.FieldEqualFold(FieldRawJSON, v))
 }
 
-// ConfigJSONNotNil applies the NotNil predicate on the "config_json" field.
-func ConfigJSONNotNil() predicate.Source {
-	return predicate.Source(sql.FieldNotNull(FieldConfigJSON))
-}
-
-// ConfigJSONEqualFold applies the EqualFold predicate on the "config_json" field.
-func ConfigJSONEqualFold(v string) predicate.Source {
-	return predicate.Source(sql.FieldEqualFold(FieldConfigJSON, v))
-}
-
-// ConfigJSONContainsFold applies the ContainsFold predicate on the "config_json" field.
-func ConfigJSONContainsFold(v string) predicate.Source {
-	return predicate.Source(sql.FieldContainsFold(FieldConfigJSON, v))
+// RawJSONContainsFold applies the ContainsFold predicate on the "raw_json" field.
+func RawJSONContainsFold(v string) predicate.Source {
+	return predicate.Source(sql.FieldContainsFold(FieldRawJSON, v))
 }
 
 // And groups predicates with the AND operator between them.

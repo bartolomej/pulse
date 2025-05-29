@@ -71,6 +71,31 @@ func (s *SourceRelease) Initialize() error {
 	return nil
 }
 
+func (s *SourceRelease) MarshalJSON() ([]byte, error) {
+	type Alias SourceRelease
+	return json.Marshal(&struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+		Type:  s.Type(),
+	})
+}
+
+func (s *SourceRelease) UnmarshalJSON(data []byte) error {
+	type Alias SourceRelease
+	aux := &struct {
+		*Alias
+		Type string `json:"type"`
+	}{
+		Alias: (*Alias)(s),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	return nil
+}
+
 type Release struct {
 	Repository string                    `json:"repository"`
 	Release    *github.RepositoryRelease `json:"release"`
