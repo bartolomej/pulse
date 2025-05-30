@@ -10,6 +10,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/glanceapp/glance/pkg/sources/activities/types"
@@ -254,6 +255,40 @@ func (s *Server) GetSource(w http.ResponseWriter, r *http.Request, uid string) {
 	s.serializeRes(w, deserializeSource(out))
 }
 
+func (s *Server) SearchActivities(w http.ResponseWriter, r *http.Request, params SearchActivitiesParams) {
+	var sourceUIDs []string
+	if params.Sources != nil {
+		sourceUIDs = strings.Split(*params.Sources, ",")
+	}
+
+	var minSimilarity float32
+	if params.MinSimilarity != nil {
+		minSimilarity = *params.MinSimilarity
+	}
+
+	var query string
+	if params.Query != nil {
+		query = *params.Query
+	}
+
+	limit := 20
+	if params.Limit != nil {
+		if *params.Limit < 1 || *params.Limit > 100 {
+			s.badRequest(w, fmt.Errorf("limit must be between 1 and 100"), "validate limit")
+			return
+		}
+		limit = *params.Limit
+	}
+
+	results, err := s.registry.Search(r.Context(), query, sourceUIDs, minSimilarity, limit)
+	if err != nil {
+		s.internalError(w, err, "search activities")
+		return
+	}
+
+	s.serializeRes(w, serializeActivities(results))
+}
+
 func deserializeReq[Req any](r *http.Request, req *Req) error {
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
@@ -341,6 +376,7 @@ func serializeActivity(in *types.DecoratedActivity) Activity {
 		Title:        in.Title(),
 		Uid:          in.UID(),
 		Url:          in.URL(),
+		Similarity:   &in.Similarity,
 	}
 }
 

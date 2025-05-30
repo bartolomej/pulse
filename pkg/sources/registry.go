@@ -36,6 +36,7 @@ type activityStore interface {
 	Add(activity *types.DecoratedActivity) error
 	Remove(uid string) error
 	List() ([]*types.DecoratedActivity, error)
+	Search(req types.SearchRequest) ([]*types.DecoratedActivity, error)
 }
 
 type summarizer interface {
@@ -209,4 +210,24 @@ func (r *Registry) Shutdown() {
 		return true
 	})
 	r.cancelBySourceID.Clear()
+}
+
+func (r *Registry) Search(ctx context.Context, query string, sourceUIDs []string, minSimilarity float32, limit int) ([]*types.DecoratedActivity, error) {
+	req := types.SearchRequest{
+		SourceUIDs:    sourceUIDs,
+		MinSimilarity: minSimilarity,
+		Limit:         limit,
+	}
+
+	if query != "" {
+		embedding, err := r.embedder.Embed(ctx, &types.ActivitySummary{
+			FullSummary: query,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("compute query embedding: %w", err)
+		}
+		req.QueryEmbedding = embedding
+	}
+
+	return r.activityRepo.Search(req)
 }

@@ -25,6 +25,17 @@ type ActivitySummary struct {
 
 type DecoratedActivity struct {
 	Activity
-	Summary   *ActivitySummary
-	Embedding []float32
+	Summary    *ActivitySummary
+	Embedding  []float32
+	Similarity float32
+}
+
+type SearchRequest struct {
+	QueryEmbedding []float32
+	// MinSimilarity filters out entries with lower vector embedding similarity
+	MinSimilarity float32
+	// SourceUIDs ignored if empty
+	SourceUIDs []string
+	// Limit maximum number of results to return
+	Limit int
 }
