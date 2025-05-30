@@ -24,10 +24,13 @@ type Activity struct {
 
 	// ShortSummary One-line short plain text summary.
 	ShortSummary string `json:"short_summary"`
-	SourceUid    string `json:"source_uid"`
-	Title        string `json:"title"`
-	Uid          string `json:"uid"`
-	Url          string `json:"url"`
+
+	// Similarity Similarity score (0-1) when using semantic search
+	Similarity *float32 `json:"similarity,omitempty"`
+	SourceUid  string   `json:"source_uid"`
+	Title      string   `json:"title"`
+	Uid        string   `json:"uid"`
+	Url        string   `json:"url"`
 }
 
 // CreateSourceRequest defines model for CreateSourceRequest.
@@ -41,6 +44,21 @@ type Source struct {
 	Name string `json:"name"`
 	Uid  string `json:"uid"`
 	Url  string `json:"url"`
+}
+
+// SearchActivitiesParams defines parameters for SearchActivities.
+type SearchActivitiesParams struct {
+	// Query Semantic search query text
+	Query *string `form:"query,omitempty" json:"query,omitempty"`
+
+	// Sources Filter by source UIDs (comma-separated)
+	Sources *string `form:"sources,omitempty" json:"sources,omitempty"`
+
+	// MinSimilarity Minimum similarity score (0-1)
+	MinSimilarity *float32 `form:"min_similarity,omitempty" json:"min_similarity,omitempty"`
+
+	// Limit Maximum number of results to return
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // GetPageParams defines parameters for GetPage.
@@ -57,6 +75,9 @@ type CreateSourceJSONRequestBody = CreateSourceRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Search activities
+	// (GET /activities/search)
+	SearchActivities(w http.ResponseWriter, r *http.Request, params SearchActivitiesParams)
 	// Get page HTML
 	// (GET /page)
 	GetPage(w http.ResponseWriter, r *http.Request, params GetPageParams)
@@ -85,6 +106,57 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// SearchActivities operation middleware
+func (siw *ServerInterfaceWrapper) SearchActivities(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchActivitiesParams
+
+	// ------------- Optional query parameter "query" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "query", r.URL.Query(), &params.Query)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "query", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "sources" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "sources", r.URL.Query(), &params.Sources)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sources", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "min_similarity" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "min_similarity", r.URL.Query(), &params.MinSimilarity)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "min_similarity", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchActivities(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // GetPage operation middleware
 func (siw *ServerInterfaceWrapper) GetPage(w http.ResponseWriter, r *http.Request) {
@@ -340,6 +412,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	m.HandleFunc("GET "+options.BaseURL+"/activities/search", wrapper.SearchActivities)
 	m.HandleFunc("GET "+options.BaseURL+"/page", wrapper.GetPage)
 	m.HandleFunc("GET "+options.BaseURL+"/sources", wrapper.ListSources)
 	m.HandleFunc("POST "+options.BaseURL+"/sources", wrapper.CreateSource)
