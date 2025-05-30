@@ -7,13 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/glanceapp/glance/pkg/sources/activities/types"
-	"github.com/glanceapp/glance/pkg/sources/nlp"
-	httpswagger "github.com/swaggo/http-swagger"
 	"html/template"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/glanceapp/glance/pkg/sources/activities/types"
+	"github.com/glanceapp/glance/pkg/sources/nlp"
+	httpswagger "github.com/swaggo/http-swagger"
 
 	"github.com/glanceapp/glance/pkg/storage/postgres"
 	"github.com/tmc/langchaingo/llms/openai"
