@@ -8,13 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/glanceapp/glance/pkg/sources/activities/types"
+	"github.com/glanceapp/glance/pkg/sources/nlp"
 	httpswagger "github.com/swaggo/http-swagger"
 	"html/template"
 	"io"
 	"net/http"
 	"time"
 
-	"github.com/glanceapp/glance/pkg/sources/summarizer"
 	"github.com/glanceapp/glance/pkg/storage/postgres"
 	"github.com/tmc/langchaingo/llms/openai"
 
@@ -49,12 +49,20 @@ func NewServer(logger *zerolog.Logger, cfg *Config, db *postgres.DB) (*Server, e
 		openai.WithModel("gpt-4o-mini"),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create summarizer model: %w", err)
+	}
+
+	embedderModel, err := openai.New(
+		openai.WithEmbeddingModel("text-embedding-3-large"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create embedder model: %w", err)
 	}
 
 	registry := sources.NewRegistry(
 		logger,
-		summarizer.NewSummarizer(summarizerModel),
+		nlp.NewSummarizer(summarizerModel),
+		nlp.NewEmbedder(embedderModel),
 		postgres.NewActivityRepository(db),
 		postgres.NewSourceRepository(db),
 	)

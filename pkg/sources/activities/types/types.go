@@ -25,5 +25,6 @@ type ActivitySummary struct {
 
 type DecoratedActivity struct {
 	Activity
-	Summary *ActivitySummary
+	Summary   *ActivitySummary
+	Embedding []float32
 }

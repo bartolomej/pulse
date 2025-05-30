@@ -3,9 +3,10 @@ package sources
 import (
 	"context"
 	"fmt"
-	"github.com/glanceapp/glance/pkg/sources/activities/types"
 	"sort"
 	"sync"
+
+	"github.com/glanceapp/glance/pkg/sources/activities/types"
 
 	"github.com/rs/zerolog"
 )
@@ -21,6 +22,7 @@ type Registry struct {
 
 	logger     *zerolog.Logger
 	summarizer summarizer
+	embedder   embedder
 }
 
 type sourceStore interface {
@@ -40,9 +42,14 @@ type summarizer interface {
 	Summarize(ctx context.Context, activity types.Activity) (*types.ActivitySummary, error)
 }
 
+type embedder interface {
+	Embed(ctx context.Context, summary *types.ActivitySummary) ([]float32, error)
+}
+
 func NewRegistry(
 	logger *zerolog.Logger,
 	summarizer summarizer,
+	embedder embedder,
 	activityRepo activityStore,
 	sourceRepo sourceStore,
 ) *Registry {
@@ -54,6 +61,7 @@ func NewRegistry(
 		done:          make(chan struct{}),
 		logger:        logger,
 		summarizer:    summarizer,
+		embedder:      embedder,
 	}
 
 	r.startWorkers(1)
@@ -160,15 +168,21 @@ func (r *Registry) startWorkers(nWorkers int) {
 
 					summary, err := r.summarizer.Summarize(context.Background(), act)
 					if err != nil {
-						// TODO(pulse): Better way to handle errors here?
-						//r.errorQueue <- fmt.Errorf("summarize activity: %w", err)
 						r.logger.Error().Err(err).Msgf("[Worker %d] Error summarizing activity %v\n", workerID, err)
 						continue
 					}
 
+					// Compute embedding for the full summary
+					embedding, err := r.embedder.Embed(context.Background(), summary)
+					if err != nil {
+						r.logger.Error().Err(err).Msgf("[Worker %d] Error computing embedding %v\n", workerID, err)
+						continue
+					}
+
 					err = r.activityRepo.Add(&types.DecoratedActivity{
-						Activity: act,
-						Summary:  summary,
+						Activity:  act,
+						Summary:   summary,
+						Embedding: embedding,
 					})
 					if err != nil {
 						r.logger.Error().Err(err).Msgf("[Worker %d] Error storing activity %v\n", workerID, err)

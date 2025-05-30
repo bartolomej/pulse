@@ -23,6 +23,7 @@ func (Activity) Fields() []ent.Field {
 		field.String("short_summary"),
 		field.String("full_summary"),
 		field.String("raw_json"),
+		field.Float("embedding").Nillable().Optional(),
 	}
 }
 
