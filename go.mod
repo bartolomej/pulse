@@ -14,6 +14,7 @@ require (
 	github.com/mattn/go-mastodon v0.0.9
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/oapi-codegen/runtime v1.1.1
+	github.com/pgvector/pgvector-go v0.3.0
 	github.com/rs/zerolog v1.31.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/tmc/langchaingo v0.1.13
@@ -43,6 +44,7 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/hashicorp/hcl/v2 v2.23.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
@@ -50,9 +52,13 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-runewidth v0.0.10 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
-	github.com/pgvector/pgvector-go v0.3.0 // indirect
+	github.com/olekukonko/tablewriter v0.0.5 // indirect
+	github.com/rivo/uniseg v0.1.0 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
+	github.com/spf13/cobra v1.8.1 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/swaggo/files v0.0.0-20220610200504-28940afbdbfe // indirect
 	github.com/swaggo/swag v1.8.1 // indirect

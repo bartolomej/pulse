@@ -3,8 +3,10 @@ package postgres
 import (
 	"context"
 	"fmt"
+
 	"github.com/glanceapp/glance/pkg/sources/activities"
 	"github.com/glanceapp/glance/pkg/sources/activities/types"
+	"github.com/pgvector/pgvector-go"
 
 	"github.com/glanceapp/glance/pkg/storage/postgres/ent"
 	"github.com/glanceapp/glance/pkg/storage/postgres/ent/activity"
@@ -39,6 +41,7 @@ func (r *ActivityRepository) Add(activity *types.DecoratedActivity) error {
 		SetRawJSON(string(rawJson)).
 		SetShortSummary(activity.Summary.ShortSummary).
 		SetFullSummary(activity.Summary.FullSummary).
+		SetEmbedding(pgvector.NewVector(activity.Embedding)).
 		Save(ctx)
 
 	return err
