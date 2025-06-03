@@ -107,7 +107,7 @@ paths:
             type: string
         - name: min_similarity
           in: query
-          description: Minimum similarity score (0-1)
+          description: Minimum similarity score (0-1). Can only be used when `query` is provided.
           schema:
             type: number
             format: float
