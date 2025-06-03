@@ -212,11 +212,12 @@ func (r *Registry) Shutdown() {
 	r.cancelBySourceID.Clear()
 }
 
-func (r *Registry) Search(ctx context.Context, query string, sourceUIDs []string, minSimilarity float32, limit int) ([]*types.DecoratedActivity, error) {
+func (r *Registry) Search(ctx context.Context, query string, sourceUIDs []string, minSimilarity float32, limit int, sortBy types.SortBy) ([]*types.DecoratedActivity, error) {
 	req := types.SearchRequest{
 		SourceUIDs:    sourceUIDs,
 		MinSimilarity: minSimilarity,
 		Limit:         limit,
+		SortBy:        sortBy,
 	}
 
 	if query != "" {

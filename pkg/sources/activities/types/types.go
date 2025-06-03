@@ -30,6 +30,13 @@ type DecoratedActivity struct {
 	Similarity float32
 }
 
+type SortBy string
+
+const (
+	SortBySimilarity SortBy = "similarity"
+	SortByDate       SortBy = "created_date"
+)
+
 type SearchRequest struct {
 	QueryEmbedding []float32
 	// MinSimilarity filters out entries with lower vector embedding similarity
@@ -38,4 +45,6 @@ type SearchRequest struct {
 	SourceUIDs []string
 	// Limit maximum number of results to return
 	Limit int
+	// SortBy specifies the field to sort results by (similarity or date)
+	SortBy SortBy
 }

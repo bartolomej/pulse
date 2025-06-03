@@ -121,6 +121,13 @@ paths:
             minimum: 1
             maximum: 100
             default: 20
+        - name: sort_by
+          in: query
+          description: Field to sort results by 
+          schema:
+            type: string
+            enum: [similarity, created_date]
+            default: similarity
       responses:
         '200':
           description: Search results

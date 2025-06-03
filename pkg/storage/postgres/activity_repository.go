@@ -75,39 +75,45 @@ func (r *ActivityRepository) List() ([]*types.DecoratedActivity, error) {
 	return result, nil
 }
 
+type activityWithSimilarity struct {
+	ent.Activity
+	Similarity float64 `sql:"similarity"`
+}
+
 func (r *ActivityRepository) Search(req types.SearchRequest) ([]*types.DecoratedActivity, error) {
 	ctx := context.Background()
 
 	query := r.db.Client().Activity.Query()
 
-	// Apply source filter if specified
 	if len(req.SourceUIDs) > 0 {
 		query = query.Where(activity.SourceUIDIn(req.SourceUIDs...))
 	}
 
-	// Only compute similarity if query embedding is provided
-	if len(req.QueryEmbedding) > 0 {
-		vector := pgvector.NewVector(req.QueryEmbedding)
-		simExprStr := fmt.Sprintf("(1 - (embedding <=> '%s'))", vector)
-
-		query = query.Order(func(s *sql.Selector) {
-			s.AppendSelect(sql.As(simExprStr, "similarity"))
-			// Only apply similarity filter if min similarity is specified
+	query = query.Order(func(s *sql.Selector) {
+		var simExpr string
+		if len(req.QueryEmbedding) > 0 {
+			vector := pgvector.NewVector(req.QueryEmbedding)
+			simExpr = fmt.Sprintf("(1 - (embedding <=> '%s'))", vector)
 			if req.MinSimilarity > 0 {
-				s.Where(sql.GT(simExprStr, req.MinSimilarity))
+				s.Where(sql.GT(simExpr, req.MinSimilarity))
 			}
-			s.OrderExpr(sql.Expr("similarity DESC"))
-		})
-	} else {
-		// If no query embedding, set similarity to 0
-		query = query.Order(func(s *sql.Selector) {
-			s.AppendSelect(sql.As("CAST(0 AS float8)", "similarity"))
-		})
-	}
+		} else {
+			simExpr = "CAST(0 AS float8)"
+		}
+		s.AppendSelect(sql.As(simExpr, "similarity"))
+	})
 
-	// Apply limit if specified
 	if req.Limit > 0 {
 		query = query.Limit(req.Limit)
+	}
+
+	switch req.SortBy {
+	case types.SortBySimilarity:
+		if len(req.QueryEmbedding) > 0 {
+			query = query.Order(ent.Desc("similarity"))
+		}
+	case types.SortByDate:
+		query = query.Order(ent.Desc(activity.FieldCreatedAt))
 	}
 
 	fields := []string{
@@ -126,23 +132,10 @@ func (r *ActivityRepository) Search(req types.SearchRequest) ([]*types.Decorated
 		activity.FieldEmbedding,
 	}
 
-	var rows []struct {
-		ID           string          `json:"id"`
-		UID          string          `json:"uid"`
-		SourceUID    string          `json:"source_uid"`
-		SourceType   string          `json:"source_type"`
-		Title        string          `json:"title"`
-		Body         string          `json:"body"`
-		URL          string          `json:"url"`
-		ImageURL     string          `json:"image_url"`
-		CreatedAt    interface{}     `json:"created_at"`
-		ShortSummary string          `json:"short_summary"`
-		FullSummary  string          `json:"full_summary"`
-		RawJSON      string          `json:"raw_json"`
-		Embedding    pgvector.Vector `json:"embedding"`
-		Similarity   float64         `json:"similarity"`
-	}
+	// Debug: Print the query
+	fmt.Printf("Query: %+v\n", query)
 
+	var rows []activityWithSimilarity
 	err := query.Select(fields...).Scan(ctx, &rows)
 	if err != nil {
 		return nil, fmt.Errorf("search scan: %w", err)
@@ -164,7 +157,7 @@ func (r *ActivityRepository) Search(req types.SearchRequest) ([]*types.Decorated
 				ShortSummary: a.ShortSummary,
 				FullSummary:  a.FullSummary,
 			},
-			Embedding:  a.Embedding.Slice(),
+			// Embedding:  a.Embedding.Slice(),
 			Similarity: float32(a.Similarity),
 		}
 	}

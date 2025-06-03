@@ -13,6 +13,12 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for SearchActivitiesParamsSortBy.
+const (
+	CreatedDate SearchActivitiesParamsSortBy = "created_date"
+	Similarity  SearchActivitiesParamsSortBy = "similarity"
+)
+
 // Activity defines model for Activity.
 type Activity struct {
 	Body      string    `json:"body"`
@@ -59,7 +65,13 @@ type SearchActivitiesParams struct {
 
 	// Limit Maximum number of results to return
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// SortBy Field to sort results by
+		SortBy *SearchActivitiesParamsSortBy `form:"sort_by,omitempty" json:"sort_by,omitempty"`
 }
+
+// SearchActivitiesParamsSortBy defines parameters for SearchActivities.
+type SearchActivitiesParamsSortBy string
 
 // GetPageParams defines parameters for GetPage.
 type GetPageParams struct {
@@ -144,6 +156,14 @@ func (siw *ServerInterfaceWrapper) SearchActivities(w http.ResponseWriter, r *ht
 	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "sort_by" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "sort_by", r.URL.Query(), &params.SortBy)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort_by", Err: err})
 		return
 	}
 

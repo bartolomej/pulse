@@ -280,7 +280,13 @@ func (s *Server) SearchActivities(w http.ResponseWriter, r *http.Request, params
 		limit = *params.Limit
 	}
 
-	results, err := s.registry.Search(r.Context(), query, sourceUIDs, minSimilarity, limit)
+	sortBy, err := deserializeSortBy(params.SortBy)
+	if err != nil {
+		s.badRequest(w, err, "deserialize sort by")
+		return
+	}
+
+	results, err := s.registry.Search(r.Context(), query, sourceUIDs, minSimilarity, limit, sortBy)
 	if err != nil {
 		s.internalError(w, err, "search activities")
 		return
@@ -397,6 +403,21 @@ func deserializeSource(in sources.Source) Source {
 		Url:  in.URL(),
 		Name: in.Name(),
 	}
+}
+
+func deserializeSortBy(in *SearchActivitiesParamsSortBy) (types.SortBy, error) {
+	if in == nil {
+		return types.SortByDate, nil
+	}
+
+	switch *in {
+	case CreatedDate:
+		return types.SortByDate, nil
+	case Similarity:
+		return types.SortBySimilarity, nil
+	}
+
+	return "", fmt.Errorf("unknown sort by: %s", *in)
 }
 
 func fileServerWithCache(fs http.FileSystem, cacheDuration time.Duration) http.Handler {
