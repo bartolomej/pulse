@@ -83,7 +83,7 @@ type activityWithSimilarity struct {
 func (r *ActivityRepository) Search(req types.SearchRequest) ([]*types.DecoratedActivity, error) {
 	ctx := context.Background()
 
-	query := r.db.Client().Activity.Query()
+	query := r.db.Client().Debug().Activity.Query()
 
 	if len(req.SourceUIDs) > 0 {
 		query = query.Where(activity.SourceUIDIn(req.SourceUIDs...))
@@ -110,7 +110,9 @@ func (r *ActivityRepository) Search(req types.SearchRequest) ([]*types.Decorated
 	switch req.SortBy {
 	case types.SortBySimilarity:
 		if len(req.QueryEmbedding) > 0 {
-			query = query.Order(ent.Desc("similarity"))
+			query = query.Order(func(s *sql.Selector) {
+				s.OrderExpr(sql.Expr("similarity DESC"))
+			})
 		}
 	case types.SortByDate:
 		query = query.Order(ent.Desc(activity.FieldCreatedAt))
@@ -131,9 +133,6 @@ func (r *ActivityRepository) Search(req types.SearchRequest) ([]*types.Decorated
 		activity.FieldRawJSON,
 		activity.FieldEmbedding,
 	}
-
-	// Debug: Print the query
-	fmt.Printf("Query: %+v\n", query)
 
 	var rows []activityWithSimilarity
 	err := query.Select(fields...).Scan(ctx, &rows)
