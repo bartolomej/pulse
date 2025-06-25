@@ -60,14 +60,14 @@ type SearchActivitiesParams struct {
 	// Sources Filter by source UIDs (comma-separated)
 	Sources *string `form:"sources,omitempty" json:"sources,omitempty"`
 
-	// MinSimilarity Minimum similarity score (0-1)
+	// MinSimilarity Minimum similarity score (0-1). Can only be used when `query` is provided.
 	MinSimilarity *float32 `form:"min_similarity,omitempty" json:"min_similarity,omitempty"`
 
 	// Limit Maximum number of results to return
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// SortBy Field to sort results by
-		SortBy *SearchActivitiesParamsSortBy `form:"sort_by,omitempty" json:"sort_by,omitempty"`
+	SortBy *SearchActivitiesParamsSortBy `form:"sort_by,omitempty" json:"sort_by,omitempty"`
 }
 
 // SearchActivitiesParamsSortBy defines parameters for SearchActivities.
