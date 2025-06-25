@@ -75,11 +75,8 @@ type SearchActivitiesParamsSortBy string
 
 // GetPageParams defines parameters for GetPage.
 type GetPageParams struct {
-	// Config Base64 encoded JSON string for dashboard config
+	// Config Base64 encoded JSON string for feed config
 	Config string `form:"config" json:"config"`
-
-	// FilterPrompt Natural language filter prompt.
-	FilterPrompt *string `form:"filterPrompt,omitempty" json:"filterPrompt,omitempty"`
 }
 
 // CreateSourceJSONRequestBody defines body for CreateSource for application/json ContentType.
@@ -198,14 +195,6 @@ func (siw *ServerInterfaceWrapper) GetPage(w http.ResponseWriter, r *http.Reques
 	err = runtime.BindQueryParameter("form", true, true, "config", r.URL.Query(), &params.Config)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "config", Err: err})
-		return
-	}
-
-	// ------------- Optional query parameter "filterPrompt" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "filterPrompt", r.URL.Query(), &params.FilterPrompt)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filterPrompt", Err: err})
 		return
 	}
 

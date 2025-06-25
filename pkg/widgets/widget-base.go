@@ -19,7 +19,11 @@ type widgetBase struct {
 	// SourceID is the filter parameter for fetching activities.
 	SourceID string `json:"source_id"`
 	// Query is the search query for filtering with natural language.
-	Query          string `json:"query"`
+	Query string `json:"query"`
+	// MinSimilarity is the minimum similarity (0-1) for filtering with natural language.
+	MinSimilarity float32 `json:"min_similarity"`
+	// Limit for the number of activities to show.
+	Limit          int `json:"limit" default:"10"`
 	Error          error
 	Notice         error
 	templateBuffer bytes.Buffer
@@ -58,8 +62,6 @@ type renderData struct {
 }
 
 func (w *widgetBase) Render(registry *sources.Registry) template.HTML {
-	minSimilarity := float32(0.5)
-	limit := 10
 	sortBy := types.SortByDate
 	if w.Query != "" {
 		sortBy = types.SortBySimilarity
@@ -68,8 +70,8 @@ func (w *widgetBase) Render(registry *sources.Registry) template.HTML {
 		context.Background(),
 		w.Query,
 		[]string{w.SourceID},
-		minSimilarity,
-		limit,
+		w.MinSimilarity,
+		w.Limit,
 		sortBy,
 	)
 	w.Error = err

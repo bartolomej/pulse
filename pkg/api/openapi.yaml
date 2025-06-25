@@ -160,12 +160,7 @@ paths:
         - name: config
           in: query
           required: true
-          description: Base64 encoded JSON string for dashboard config
-          schema:
-            type: string
-        - name: filterPrompt
-          in: query
-          description: Natural language filter prompt.
+          description: Base64 encoded JSON string for feed config
           schema:
             type: string
       responses:

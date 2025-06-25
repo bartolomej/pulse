@@ -40,14 +40,16 @@ Here is an example of a page configuration:
           "collapse_after": 3,
           "show_thumbnails": true,
           "source_id": "issues/browser-use/browser-use",
-          "query": "MCP support discussions"
+          "query": "MCP support discussions",
+          "min_similarity": 0.2
         },
         {
           "limit": 10,
           "collapse_after": 3,
           "show_thumbnails": true,
           "source_id": "releases/browser-use/browser-use",
-          "query": "MCP related changes"
+          "query": "MCP related changes",
+          "min_similarity": 0.4
         }
       ]
     }
